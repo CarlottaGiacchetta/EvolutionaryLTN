@@ -154,14 +154,17 @@ def generate(
         images = images.to("cpu", torch.uint8).numpy()
 
         decoder.to(device)
+        list_of_images = []
+        print("salvo le immagini")
         for i in range(len(list_of_latents)):
             tmp_image = decoder(list_of_latents[i])
             tmp_image = rescale(tmp_image, (-1, 1), (0, 255), clamp=True)
             tmp_image = tmp_image.permute(0, 2, 3, 1)
             tmp_image = tmp_image.to("cpu", torch.uint8).numpy()
-            Image.fromarray(tmp_image[0]).save(f"images/tmp_image_{i}.png")
+            Image.fromarray(tmp_image[0]).save(f"images/bimbo/tmp_image_{i}.png")
+            list_of_images.append(Image.fromarray(tmp_image[0]))
         
-        return images[0]
+        return images[0], list_of_images
     
 def rescale(x, old_range, new_range, clamp=False):
     old_min, old_max = old_range
