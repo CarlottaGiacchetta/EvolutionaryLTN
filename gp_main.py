@@ -4,8 +4,7 @@ import copy
 OPERATORS = ["AND", "OR", "IMPLIES"]
 QUANTIFIERS = ["FORALL", "EXISTS"]
 PREDICATES = ["Cat", "HasWhiskers", "Dog"]
-VARIABLES = ["x"]  # Se vuoi più variabili, aggiungile qui (es. ["x","y"]).
-
+VARIABLES = ["x"]
 
 #################################################################
 # Definizione del Nodo
