@@ -78,6 +78,10 @@ class LTNFormulas:
         self.Cat = predicates.Cat
         self.Dog = predicates.Dog
         self.HasWhiskers = predicates.HasWhiskers
+        self.formulas = {
+            "Cat -> HasWhiskers": self.formula_cat_implies_whiskers,
+            "Dog -> ¬Cat": self.formula_dog_implies_not_cat,
+        }
 
     def formula_cat_implies_whiskers(self, x):
         return self.impl(self.Cat(x), self.HasWhiskers(x))

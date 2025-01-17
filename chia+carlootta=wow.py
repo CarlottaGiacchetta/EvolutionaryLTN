@@ -30,29 +30,6 @@ def evaluate_formula(candidates, args):
     training = args["training"]
     fitness = []
     for candidate in candidates:
-        quantifier = getattr(args["quantifiers"], QUANTIFIERS[candidate[0]])
-        pred1 = getattr(args["predicates"], PREDICATES[candidate[1]])
-        negation = getattr(args["negations"], NEGATION[candidate[2]])
-        operator_name = OPERATORS[candidate[3]]
-
-        if negation == "Not":
-            def formula_func():
-                operator = ltn.core.Connective(fuzzy_ops.NotStandard())
-                return quantifier(training.variables.x, negation(pred1(training.variables.x)))
-        else:
-            operator = ltn.core.Connective(getattr(fuzzy_ops, operator_name + "Luk")())
-            pred2 = getattr(args["predicates"], PREDICATES[candidate[3]])
-
-            def formula_func():
-                return quantifier(training.variables.x, operator(pred1(training.variables.x), pred2(training.variables.x)))
-
-        fitness.append(training.add_formula_temporarily(formula_func))
-    return fitness
-
-def evaluate_formula(candidates, args):
-    training = args["training"]
-    fitness = []
-    for candidate in candidates:
         # Recupero componenti della formula
         quantifier = QUANTIFIERS[candidate[0]]
         pred1_name = PREDICATES[candidate[2]]
@@ -68,7 +45,7 @@ def evaluate_formula(candidates, args):
         formula_repr = f"{quantifier} x ({pred1_repr} {operator_name} {pred2_repr})"
         
         # Stampa la formula
-        print(f"Evaluating formula: {formula_repr}")
+        print(f"\nEvaluating formula: {formula_repr}")
 
         # Creazione della funzione della formula
         def formula_func():
@@ -85,17 +62,21 @@ def evaluate_formula(candidates, args):
             pred2_value = pred2(training.variables.x)
             if negation2:
                 pred2_value = ltn.core.Connective(fuzzy_ops.NotStandard())(pred2_value)
-
             return getattr(args["quantifiers"], quantifier)(training.variables.x, operator(pred1_value, pred2_value))
 
         # Valutazione della formula e aggiunta del risultato alla lista di fitness
-        fitness.append(training.add_formula_temporarily(formula_func))
+        if pred1_name == pred2_name:
+            f = training.add_formula_temporarily(formula_func)*0.7
+            print(training.add_formula_temporarily(formula_func), f)
+        else: 
+            f = training.add_formula_temporarily(formula_func)
+        fitness.append(f)
     return fitness
 
 
 def safe_gaussian_mutation(random, candidates, args):
     mean = 0
-    stdev = 0.1
+    stdev = 0.5
     mutants = []
     for candidate in candidates:
         mutant = candidate[:]
@@ -117,9 +98,9 @@ def run_ga(training, predicates, quantifiers):
     final_pop = ea.evolve(
         generator=generate_formula,
         evaluator=evaluate_formula,
-        pop_size=10,
+        pop_size=50,
         maximize=True,
-        max_evaluations=10,
+        max_evaluations=50,
         training=training,
         predicates=predicates,
         quantifiers=quantifiers
