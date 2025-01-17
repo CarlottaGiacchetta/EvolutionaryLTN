@@ -148,3 +148,76 @@ class LTNTraining:
         print('----------------------------------------------------\n\n')
 
 
+    def add_formula_temporarily(self, new_formula_func, steps=50):
+        """
+        Add a formula temporarily to the KB, retrain, and evaluate it.
+
+        Args:
+            new_formula_func (callable): A function that creates and returns the new formula object.
+            steps (int): Number of retraining steps.
+
+        Returns:
+            float: Final satisfaction value after retraining.
+        """
+        # Save the current state_dict
+        original_state = {}
+        for name, param in zip(['Cat', 'Dog', 'HasWhiskers'], [
+            self.predicates.Cat_model, 
+            self.predicates.Dog_model, 
+            self.predicates.HasWhiskers_model
+        ]):
+            original_state[name] = deepcopy(param.state_dict())
+
+        # Create a new optimizer for retraining
+        optimizer_retrain = torch.optim.Adam(self.params, lr=0.01)
+
+        final_sat = 0.0
+
+        try:
+            for step in range(steps):
+                optimizer_retrain.zero_grad()
+                # Compute satisfaction of the knowledge base
+                sat_kb = self.satisfaction_kb()
+                # Recreate the new formula object to ensure a fresh computation graph
+                new_formula_obj = new_formula_func()
+                # Compute satisfaction of the new formula
+                sat_new = new_formula_obj.value
+                # Aggregate satisfactions
+                total_sat = (sat_kb + sat_new) / 2.0
+                # Define loss
+                loss = 1.0 - total_sat
+                # Backward pass
+                loss.backward()
+                # Optimizer step
+                optimizer_retrain.step()
+                final_sat = total_sat.item()
+                # Optionally, print progress
+                if (step + 1) % 10 == 0:
+                    print(f"Retraining Step {step + 1}/{steps}: satisfaction={final_sat:.3f}, loss={loss.item():.3f}")
+
+        except RuntimeError as e:
+            print(f"Error during retraining: {e}")
+
+        # Restore the original state_dict
+        for name, param in zip(['Cat', 'Dog', 'HasWhiskers'], [
+            self.predicates.Cat_model, 
+            self.predicates.Dog_model, 
+            self.predicates.HasWhiskers_model
+        ]):
+            param.load_state_dict(original_state[name])
+
+        return final_sat
+    
+    def infer_formula(self, formula_func):
+        """
+        Evaluate the truth value of a formula without retraining.
+
+        Args:
+            formula_func (callable): A function that creates and returns the formula object.
+
+        Returns:
+            float: Truth value of the formula.
+        """
+        with torch.no_grad():
+            formula_obj = formula_func()
+            return formula_obj.value.item()
