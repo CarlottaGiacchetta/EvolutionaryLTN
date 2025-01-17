@@ -21,8 +21,8 @@ def new_formula_func():
     return quantifiers.Exists(variables.x, and_(predicates.Cat(variables.x), not_(predicates.HasWhiskers(variables.x))))
 
 satisfaction = training.add_formula_temporarily(new_formula_func, steps=50)
-print("Satisfaction (KB + new formula) after temporary addition:", satisfaction)
+print("Satisfaction (KB + ∃x (Cat(x) & ¬HasWhiskers(x)) after temporary addition:", satisfaction)
 
 # Infer formula without retraining
 truth_value = training.infer_formula(new_formula_func)
-print("Truth value of the new formula without retraining:", truth_value)
+print("Truth value of ∃x (Cat(x) & ¬HasWhiskers(x)) without retraining:", truth_value)
