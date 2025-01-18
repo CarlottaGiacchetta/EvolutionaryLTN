@@ -5,8 +5,8 @@ import torch.nn as nn
 # Liste di possibili scelte
 OPERATORS = ["AND", "OR", "IMPLIES"]
 QUANTIFIERS = ["FORALL", "EXISTS"]
-PREDICATES = ["Cat", "HasWhiskers", "Dog"]#, "Parent", "Likes", "Owner"
-VARIABLES = ["x"]  # , "y" Puoi aggiungerne altre, es. "z"
+PREDICATES = ["Cat", "HasWhiskers", "Dog", "Parent", "Likes", "Owner"]
+VARIABLES = ["x", "y"]  # Puoi aggiungerne altre, es. "z"
 
 #################################################################
 # Definizione del Nodo
@@ -235,39 +235,6 @@ class Albero:
         assumendo che scope_vars contenga le ltn.Variable pertinenti.
         """
         return build_ltn_formula_node(self.radice, ltn_dict, scope_vars)
-
-#################################################################
-# definizione delle funzioni
-#################################################################
-
-def formula1(kb_formulas):
-    # Formula 1: Cat(x) -> HasWhiskers(x)
-    var_x = Nodo("VARIABILE", "x")
-    cat_x = Nodo("PREDICATO", "Cat(x)")
-    has_whiskers_x = Nodo("PREDICATO", "HasWhiskers(x)")
-    implies_formula = Nodo("OPERATORE", "IMPLIES", [cat_x, has_whiskers_x])
-    formula1 = Nodo("QUANTIFICATORE", "FORALL", [var_x, implies_formula])
-    kb_formulas.append(formula1)
-
-def formula2(kb_formulas):
-    # Formula 2: Dog(x) -> NOT(Cat(x))
-    var_x = Nodo("VARIABILE", "x")
-    cat_x = Nodo("PREDICATO", "Cat(x)")
-    dog_x = Nodo("PREDICATO", "Dog(x)")
-    not_cat_x = Nodo("OPERATORE", "NOT", [cat_x])
-    implies_formula2 = Nodo("OPERATORE", "IMPLIES", [dog_x, not_cat_x])
-    formula2 = Nodo("QUANTIFICATORE", "FORALL", [var_x, implies_formula2])
-    kb_formulas.append(formula2)
-
-def formula3(kb_formulas):
-    # Formula 3: EXISTS x: Cat(x) OR Dog(x)
-    var_x = Nodo("VARIABILE", "x")
-    cat_x = Nodo("PREDICATO", "Cat(x)")
-    dog_x = Nodo("PREDICATO", "Dog(x)")
-    or_formula = Nodo("OPERATORE", "OR", [cat_x, dog_x])
-    formula3 = Nodo("QUANTIFICATORE", "EXISTS", [var_x, or_formula])
-    kb_formulas.append(formula3)
-
 
 
 #################################################################
