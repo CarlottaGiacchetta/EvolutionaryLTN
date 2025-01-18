@@ -4,8 +4,8 @@ import ltn.fuzzy_ops as fuzzy_ops
 import torch.nn as nn
 import numpy as np
 from copy import deepcopy
-from gp_main import * 
 from kb import * 
+from structure import *
 
 
 # Setup
@@ -13,7 +13,7 @@ kb_formulas = create_kb()
 ltn_dict, variables = setup_ltn(kb_formulas)
 
 population_size = 25
-generations = 100
+generations = 10
 max_depth = 5
 
 # Costanti

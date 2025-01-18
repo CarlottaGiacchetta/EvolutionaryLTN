@@ -2,15 +2,7 @@ import ltn
 import torch
 import ltn.fuzzy_ops as fuzzy_ops
 import torch.nn as nn
-import numpy as np
-from copy import deepcopy
-from gp_main import * 
-
-import ltn
-import torch
-import ltn.fuzzy_ops as fuzzy_ops
-import torch.nn as nn
-from gp_main import Nodo, build_ltn_formula_node, make_unary_predicate
+from structure import Nodo, build_ltn_formula_node, make_unary_predicate
 
 # Definizione della KB
 def create_kb():
