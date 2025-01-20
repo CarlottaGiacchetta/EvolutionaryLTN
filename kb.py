@@ -16,11 +16,12 @@ def create_kb():
     formula1 = Nodo("QUANTIFICATORE", "FORALL", [var_x, implies_formula])
     kb_formulas.append(formula1)
 
-    # Formula 2: FORALL x: Dog(x) -> NOT(Cat(x))
+    # Formula2: FORALL x: NOT(Cat(x) AND Dog(x))
+    cat_x = Nodo("PREDICATO", "Cat(x)")
     dog_x = Nodo("PREDICATO", "Dog(x)")
-    not_cat_x = Nodo("OPERATORE", "NOT", [cat_x])
-    implies_formula2 = Nodo("OPERATORE", "IMPLIES", [dog_x, not_cat_x])
-    formula2 = Nodo("QUANTIFICATORE", "FORALL", [var_x, implies_formula2])
+    cat_and_dog = Nodo("OPERATORE", "AND", [cat_x, dog_x])
+    not_cat_and_dog = Nodo("OPERATORE", "NOT", [cat_and_dog])
+    formula2 = Nodo("QUANTIFICATORE", "FORALL", [var_x, not_cat_and_dog])
     kb_formulas.append(formula2)
 
     # Formula 3: EXISTS x: Cat(x) OR Dog(x)
@@ -100,3 +101,44 @@ def kb_loss(kb_formulas, ltn_dict, variables):
         ltn_formula = build_ltn_formula_node(formula, ltn_dict, variables)
         total_loss += (1 - ltn_formula.value.mean())
     return total_loss
+
+
+def compare_nodes(node1, node2):
+    print('stampo nodo 1 e nodo 2')
+    print(node1)
+    print(node2)
+    """
+    Confronta due nodi ricorsivamente (struttura, tipo e valori).
+    """
+    if node1.tipo_nodo != node2.tipo_nodo:
+        print('node1.tipo_nodo != node2.tipo_nodo')
+        print(node1.tipo_nodo, node2.tipo_nodo)
+        return False
+    if node1.valore != node2.valore:
+        print('node1.valore != node2.valore')
+        print(node1.valore, node2.valore)
+        return False
+    if len(node1.figli) != len(node2.figli):
+        print('len(node1.figli) != len(node2.figli)')
+        print(len(node1.figli), len(node2.figli))
+        return False
+    for child1, child2 in zip(node1.figli, node2.figli):
+        print('sono nel for -> chiamata ricorsiva')
+        if not compare_nodes(child1, child2):
+            return False
+    return True
+
+
+
+def is_formula_in_kb(formula, kb_formulas):
+    """
+    Verifica se una formula semanticamente equivalente è già presente nella KB.
+    """
+    for kb_formula in kb_formulas:
+        print()
+        print('stampo kb formula')
+        print(kb_formula)
+        if compare_nodes(formula, kb_formula):
+            return True
+        print()
+    return False

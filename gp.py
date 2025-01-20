@@ -12,8 +12,8 @@ from structure import *
 kb_formulas = create_kb()
 ltn_dict, variables = setup_ltn(kb_formulas)
 
-population_size = 25
-generations = 10
+population_size = 49
+generations = 1
 max_depth = 5
 
 # Costanti
@@ -78,14 +78,24 @@ def compute_fitness(popolazione, ltn_dict, variabili):
     for i in range(popolazione.shape[0]):
         for j in range(popolazione.shape[1]):
             individuo = popolazione[i, j][0]  # Albero
+            #print()
+            #print(individuo)
             predicati = [nodo for nodo in get_all_nodes(individuo.radice) if nodo.tipo_nodo == "PREDICATO"]
             formula = individuo.to_ltn_formula(ltn_dict, variabili)
             fitness = formula.value.item()
-            popolazione[i, j][1] = fitness  # Aggiorna fitness
+            #print(fitness)
+            #print(predicati)
+            #print(set(predicati))  # Ora funziona correttamente
+            #print(len(predicati), len(set(predicati)))
+            
+            # Penalizza se ci sono duplicati
             if len(predicati) != len(set(predicati)):
-                fitness = fitness*0.6
-
+                fitness *= 0.6
+            popolazione[i, j][1] = fitness  # Aggiorna fitness
+            #print(fitness)
+            #print()
     return popolazione
+
 
 
 def evolutionary_run(popolazione, generations, ltn_dict, variabili, operatori):
@@ -132,12 +142,17 @@ popolazione_finale = evolutionary_run(
     operatori=operatori
 )
 
-# Miglior individuo finale
-migliore = max(
+# Ordinamento della popolazione in base alla fitness in ordine decrescente
+popolazione_ordinata = sorted(
     (individuo for row in popolazione_finale for individuo in row),
-    key=lambda x: x[1]
+    key=lambda x: x[1],  # Ordina per fitness
+    reverse=True  # Ordine decrescente
 )
+
+# Miglior individuo finale
+migliore = popolazione_ordinata[0]
+
 print(f"\n--- Risultati Finali ---")
-print(popolazione_finale)
+print(popolazione_ordinata)
 print(f"Miglior individuo finale: {migliore[0]}")
 print(f"Fitness: {migliore[1]}")

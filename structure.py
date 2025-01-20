@@ -87,6 +87,18 @@ class Nodo:
                 return False
 
         return True
+    
+    def __eq__(self, other):
+        if not isinstance(other, Nodo):
+            return False
+        return (
+            self.tipo_nodo == other.tipo_nodo and
+            self.valore == other.valore and
+            self.figli == other.figli
+        )
+
+    def __hash__(self):
+        return hash((self.tipo_nodo, self.valore, tuple(self.figli)))
 
 #################################################################
 # Parsing di predicato multi-argomento: "Dog(x,y,z)" -> ("Dog", ["x","y","z"])
