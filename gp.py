@@ -6,14 +6,14 @@ import numpy as np
 from copy import deepcopy
 from kb import * 
 from structure import *
-
+from utils import *
 
 # Setup
 kb_formulas = create_kb()
 ltn_dict, variables = setup_ltn(kb_formulas)
 
-population_size = 49
-generations = 1
+population_size = 100
+generations = 100
 max_depth = 5
 
 # Costanti
@@ -71,57 +71,6 @@ VARIABLES = [k for k in variabili.keys()]
 
 matrix_size = int(np.sqrt(population_size))
 
-
-
-def compute_fitness(popolazione, ltn_dict, variabili):
-    # Calcola la fitness per ogni individuo
-    for i in range(popolazione.shape[0]):
-        for j in range(popolazione.shape[1]):
-            individuo = popolazione[i, j][0]  # Albero
-            #print()
-            #print(individuo)
-            predicati = [nodo for nodo in get_all_nodes(individuo.radice) if nodo.tipo_nodo == "PREDICATO"]
-            formula = individuo.to_ltn_formula(ltn_dict, variabili)
-            fitness = formula.value.item()
-            #print(fitness)
-            #print(predicati)
-            #print(set(predicati))  # Ora funziona correttamente
-            #print(len(predicati), len(set(predicati)))
-            
-            # Penalizza se ci sono duplicati
-            if len(predicati) != len(set(predicati)):
-                fitness *= 0.6
-            popolazione[i, j][1] = fitness  # Aggiorna fitness
-            #print(fitness)
-            #print()
-    return popolazione
-
-
-
-def evolutionary_run(popolazione, generations, ltn_dict, variabili, operatori):
-    """
-    Esegue l'algoritmo evolutivo su una popolazione di alberi.
-    """
-    for generation in range(generations):
-        print(f"\n--- Generazione {generation + 1}/{generations} ---")
-
-        # Ordina i vicini per fitness e applica crossover/mutazione
-        for i in range(popolazione.shape[0]):
-            for j in range(popolazione.shape[1]):
-                vicini = get_neighbors(popolazione, i, j)
-                vicini.sort(key=lambda x: x[1], reverse=True)  # Ordina per fitness decrescente
-
-                # Selezione e crossover
-                parent1, parent2 = vicini[0][0], vicini[1][0]  # Migliori 2 vicini
-                child1, child2 = crossover(parent1, parent2, prob=0.9)
-                # Mutazione
-                child1 = mutate(child1, prob=0.2)
-                child2 = mutate(child2, prob=0.2)
-
-                popolazione = compute_fitness(popolazione, ltn_dict, variabili)
-
-    # Ritorna la popolazione finale
-    return popolazione
 
 print(matrix_size)
 popolazione = compute_fitness(np.array([

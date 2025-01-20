@@ -246,7 +246,12 @@ class Albero:
         Converte l'albero in formula LTN, 
         assumendo che scope_vars contenga le ltn.Variable pertinenti.
         """
-        return build_ltn_formula_node(self.radice, ltn_dict, scope_vars)
+        try:
+            return build_ltn_formula_node(self.radice, ltn_dict, scope_vars)
+        except:
+            # resetto l'albero e ne genero uno nuovo
+            self.__init__(self.VARIABLES, self.OPERATORS, self.QUANTIFIERS, self.PREDICATES)
+            return build_ltn_formula_node(self.radice, ltn_dict, scope_vars)
 
 #################################################################
 # definizione delle funzioni
@@ -457,37 +462,18 @@ def make_unary_predicate(in_features=2, hidden1=8, hidden2=4):
     )
 
 
-def get_neighbors(matrix, row, col):
-    """
-    Restituisce gli 8 vicini di un elemento nella matrice 2D.
-
-    Parametri:
-        matrix: np.ndarray
-            La matrice 2D della popolazione.
-        row: int
-            Indice di riga dell'individuo corrente.
-        col: int
-            Indice di colonna dell'individuo corrente.
-
-    Ritorna:
-        neighbors: list
-            Lista dei vicini (può avere meno di 8 elementi ai bordi).
-    """
+def get_neighbors(popolazione, i, j):
     neighbors = []
-    rows, cols, _ = matrix.shape
+    # elenco delle possibili direzioni
+    directions = [(-1, -1), (-1, 0), (-1, 1),
+                  (0, -1),           (0, 1),
+                  (1, -1),  (1, 0),  (1, 1)]
 
-    # Coordinate relative dei vicini
-    directions = [
-        (-1, -1), (-1, 0), (-1, 1),  # sopra
-        (0, -1),         (0, 1),      # sinistra e destra
-        (1, -1), (1, 0), (1, 1)       # sotto
-    ]
-
-    for dr, dc in directions:
-        new_row, new_col = row + dr, col + dc
-
-        # Controlla che le coordinate siano dentro i limiti della matrice
-        if 0 <= new_row < rows and 0 <= new_col < cols:
-            neighbors.append(matrix[new_row, new_col])
-
+    for di, dj in directions:
+        x = i + di
+        y = j + dj
+        # verifica che x,y siano entro i limiti di popolazione
+        if 0 <= x < popolazione.shape[0] and 0 <= y < popolazione.shape[1]:
+            # Salvo TUTTO ciò che mi serve: (i_vicino, j_vicino, albero, fitness)
+            neighbors.append((x, y, popolazione[x, y][0], popolazione[x, y][1]))
     return neighbors
