@@ -1,9 +1,6 @@
 import ltn
 import torch
 import ltn.fuzzy_ops as fuzzy_ops
-import torch.nn as nn
-import numpy as np
-from copy import deepcopy
 from kb import * 
 from structure import *
 from utils import *

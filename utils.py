@@ -28,8 +28,6 @@ def compute_fitness(popolazione, ltn_dict, variabili, is_matrix):
             if len(predicati) != len(set(predicati)):
                 fitness *= 0.6
             popolazione[i][1] = fitness  # Aggiorna fitness
-                
-
     return popolazione
 
 
@@ -70,7 +68,6 @@ def compute_fitness_singolo(individuo, ltn_dict, variabili, kb_formulas):
     if individuo.profondita > 6:
         fitness *= 0.5
     return fitness 
-
 
 
 def fitness_proportionate_selection(population, num_to_select=2):
