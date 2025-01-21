@@ -11,10 +11,14 @@ from utils import *
 # Setup
 kb_formulas = create_kb()
 ltn_dict, variables = setup_ltn(kb_formulas)
-
-population_size = 100
+is_matrix = False
+population_size = 49
 generations = 100
 max_depth = 5
+num_offspring = 5
+metodi = [fitness_proportionate_selection, fitness_proportionate_selection_modern]
+metodo = fitness_proportionate_selection
+
 
 # Costanti
 costanti = {
@@ -69,39 +73,45 @@ VARIABLES = [k for k in variabili.keys()]
 
 
 
-matrix_size = int(np.sqrt(population_size))
-
-
-print(matrix_size)
-popolazione = compute_fitness(np.array([
-    [
-        [Albero(VARIABLES=VARIABLES, OPERATORS=OPERATORS, QUANTIFIERS=QUANTIFIERS, PREDICATES=PREDICATES), 0] # individuo e fitness --> massimizzare
-        for _ in range(matrix_size)
-    ] for _ in range(matrix_size)
-]),
-    ltn_dict={**predicati, **quantificatori, **operatori},
-    variabili=variabili)
+popolazione = popolazione_init(population_size=population_size, is_matrix=is_matrix, predicati=predicati, quantificatori=quantificatori, operatori=operatori, variabili=variabili)
 
 # Esecuzione
-popolazione_finale = evolutionary_run(
+popolazione_finale = evolutionary_run_GP(
     popolazione,
     generations=generations,
     ltn_dict={**predicati, **quantificatori, **operatori},
     variabili=variabili,
-    operatori=operatori
+    operatori=operatori,
+    metodo=metodo,
+    is_matrix=is_matrix,
+    num_offspring=num_offspring,
+    kb_formulas=kb_formulas
 )
 
-# Ordinamento della popolazione in base alla fitness in ordine decrescente
-popolazione_ordinata = sorted(
-    (individuo for row in popolazione_finale for individuo in row),
-    key=lambda x: x[1],  # Ordina per fitness
-    reverse=True  # Ordine decrescente
-)
+
+if is_matrix:
+    # Ordinamento della popolazione in base alla fitness in ordine decrescente
+    popolazione_ordinata = sorted(
+        (individuo for row in popolazione_finale for individuo in row),
+        key=lambda x: x[1],  # Ordina per fitness
+        reverse=True  # Ordine decrescente
+    )
+
+else:
+    # Ordinamento della popolazione in base alla fitness in ordine decrescente
+    popolazione_ordinata = sorted(
+        (individuo for individuo in popolazione_finale),
+        key=lambda x: x[1],  # Ordina per fitness
+        reverse=True  # Ordine decrescente
+    )
 
 # Miglior individuo finale
-migliore = popolazione_ordinata[0]
+migliori = popolazione_ordinata[0:5]
+print('popolazione finale\n', popolazione_finale)
+print('popolazione ordinata\n', popolazione_ordinata)
 
-print(f"\n--- Risultati Finali ---")
-print(popolazione_ordinata)
-print(f"Miglior individuo finale: {migliore[0]}")
-print(f"Fitness: {migliore[1]}")
+for migliore in migliori:
+    print(f"\n--- Risultati Finali ---")
+    
+    print(f"Miglior individuo finale: {migliore[0]}")
+    print(f"Fitness: {migliore[1]}")
