@@ -1,4 +1,4 @@
-from kb import *
+from knowledge_base import *
 
 
 # Setup

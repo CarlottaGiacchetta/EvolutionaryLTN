@@ -1,143 +1,547 @@
-from kb import * 
-from structure import *
-from copy import deepcopy
-import numpy as np
+import random
+import copy
+import torch.nn as nn
 
+# Liste di possibili scelte
+#OPERATORS = ["AND", "OR", "IMPLIES"]
+#QUANTIFIERS = ["FORALL", "EXISTS"]
+#PREDICATES = ["Cat", "HasWhiskers", "Dog"]#, "Parent", "Likes", "Owner"
+#VARIABLES = ["x"]  # , "y" Puoi aggiungerne altre, es. "z"
 
-def compute_fitness_singolo(individuo, ltn_dict, variabili, predicati, costanti, kb_rules, kb_facts):
+#################################################################
+# Definizione del Nodo
+#################################################################
+
+class Nodo:
+    def __init__(self, tipo_nodo, valore=None, figli=None):
+        """
+        tipo_nodo: "OPERATORE", "QUANTIFICATORE", "PREDICATO", "VARIABILE"
+        valore: es. "AND", "FORALL", "Dog(x,y)", ...
+        figli: lista di nodi (vuota per i predicati e le variabili)
+        """
+        self.tipo_nodo = tipo_nodo
+        self.valore = valore
+        self.figli = figli if (figli is not None) else []
+
+    def copia(self):
+        return copy.deepcopy(self)
     
-    steps = 50
-    parameters = []
-
-    for pred in predicati.values():
-        parameters += list(pred.model.parameters())
-    
-    parametri_da_usare = deepcopy(parameters)
-
-    nuova_formula = lambda x: individuo.to_ltn_formula(ltn_dict, variabili)
-    
-    tmp_kb_rules = kb_rules + [nuova_formula]
-    
-    optimizer_retrain = torch.optim.Adam(parametri_da_usare, lr=0.01)
-    
-    for _ in range(steps):
-        optimizer_retrain.zero_grad()
-        loss = 1 - kb_loss(tmp_kb_rules, kb_facts, variabili, costanti)
-        loss.backward()
-        optimizer_retrain.step()
-
-    numero_di_formule_unsat = 0 # da massimmizzare
-    avg_sat = 0 #[0,1]
-
-    threshold = 0.7
-    for chiave in variabili:
-        for i, formula in enumerate(tmp_kb_rules, start=1):
-            satisfaction = formula(variabili[chiave]).value
-            avg_sat += satisfaction
-            if satisfaction < threshold:
-                numero_di_formule_unsat +=1
-    
-    for costante in costanti:
-        for i, formula in enumerate(kb_facts, start=1):
-            satisfaction = formula(costanti[costante]).value
-            avg_sat += satisfaction
-            if satisfaction < threshold:
-                numero_di_formule_unsat +=1
-
-    indice_di_sat = 1 - avg_sat/((len(tmp_kb_rules) * len(variabili)) + (len(kb_facts) * len(costanti))) #(da massimizzare)
-    lunghezza_formula = len([nodo.tipo_nodo for nodo in get_all_nodes(individuo.radice)]) # da minimizzare
-    
-    
-    fitness = torch.detach(np.exp(numero_di_formule_unsat) + indice_di_sat - lunghezza_formula).item()
-    #fitness = torch.detach(indice_di_sat - lunghezza_formula).item()
-    #fitness = np.exp(numero_di_formule_unsat)
-
-    return fitness, numero_di_formule_unsat
-
-
-import numpy as np
-
-def evolutionary_run(popolazione, generations, ltn_dict, variabili, predicati, costanti, ottimizzatore, kb_rules, kb_facts):
-    patience = 10
-    tolerance = 1e-4
-    # Inizializza il valore migliore di fitness e il contatore di pazienza
-    best_fitness = -float('inf')
-    patience_counter = 0
-
-    for generation in range(generations):
-        print(f"\n--- Generazione {generation + 1}/{generations} ---")
-
-        numero_unsat = 0
-        max_fitness_generation = -float('inf')  # Per tracciare il miglioramento in questa generazione
-
-        for i in range(popolazione.shape[0]):
-            for j in range(popolazione.shape[1]):
-
-                # Ottieni il parent1
-                parent1, fitness_parent1 = popolazione[i, j]
-
-                # Trova i vicini
-                vicini = get_neighbors(popolazione, i, j)
-
-                # Estrai fitness dei vicini e normalizzala per la selezione proporzionale
-                fitness_values = np.array([neighbor[3] for neighbor in vicini])
-                fitness_sum = fitness_values.sum()
-                if fitness_sum > 0:
-                    probabilities = fitness_values / fitness_sum
-                else:
-                    probabilities = np.ones_like(fitness_values) / len(fitness_values)  # Uniforme se fitness negativa o zero
-
-                # Seleziona il parent2 proporzionalmente alla fitness
-                selected_index = np.random.choice(len(vicini), p=probabilities)
-                _, _, parent2_tree, parent2_fitness = vicini[selected_index]
-
-                # Esegui crossover
-                child1, child2 = crossover(parent1, parent2_tree, prob=0.9)
-
-                # Esegui mutazione
-                child1 = mutate(child1, prob=0.9)
-                child2 = mutate(child2, prob=0.9)
-
-                # Calcola fitness figli
-                fit_child1, num_unsat1 = compute_fitness_singolo(
-                    child1, ltn_dict, variabili, predicati, costanti, kb_rules, kb_facts
-                )
-                fit_child2, num_unsat2 = compute_fitness_singolo(
-                    child2, ltn_dict, variabili, predicati, costanti, kb_rules, kb_facts
-                )
-
-                # Trova il miglior figlio
-                if fit_child1 >= fit_child2:
-                    best_child, best_child_fitness = child1, fit_child1
-                else:
-                    best_child, best_child_fitness = child2, fit_child2
-
-                # Sostituisci il parent in (i, j) solo se il miglior figlio è migliore
-                if best_child_fitness > fitness_parent1:
-                    popolazione[i, j] = [best_child, best_child_fitness]
-
-                # Aggiorna il numero di formule UNSAT
-                numero_unsat = max(numero_unsat, num_unsat1, num_unsat2)
-
-                # Aggiorna la fitness massima per questa generazione
-                max_fitness_generation = max(max_fitness_generation, fit_child1, fit_child2)
-
-        print(f"\nNumero di Formule diventate UNSAT: {numero_unsat}")
-        print(f"Miglior Fitness Generazione: {max_fitness_generation:.4f}")
-
-        # Controllo early stopping
-        if max_fitness_generation > best_fitness + tolerance:
-            best_fitness = max_fitness_generation
-            patience_counter = 0  # Reset patience
-            print("Miglioramento significativo trovato. Reset patience counter.")
+    def __repr__(self):
+        """
+        Stampa ricorsiva del nodo.
+        """
+        if self.tipo_nodo == "PREDICATO":
+            # es: "Dog(x,y)"
+            return f"{self.valore}"
+        elif self.tipo_nodo == "VARIABILE":
+            # es: "x"
+            return self.valore
+        elif self.tipo_nodo == "OPERATORE":
+            # assumiamo operatore binario o 'NOT' unario
+            if self.valore == "NOT":
+                return f"(NOT {self.figli[0]})"
+            else:
+                # es. (child0 AND child1)
+                return f"({self.figli[0]} {self.valore} {self.figli[1]})"
+        elif self.tipo_nodo == "QUANTIFICATORE":
+            # (FORALL x: <body>)
+            var_node = self.figli[0]   # nodo VARIABILE
+            body = self.figli[1]       # sottoformula
+            return f"({self.valore} {var_node.valore}: {body})"
         else:
-            patience_counter += 1
-            print(f"Nessun miglioramento significativo. Patience counter: {patience_counter}/{patience}")
+            return f"UNKNOWN({self.valore})"
 
-        # Interruzione anticipata se la pazienza è esaurita
-        if patience_counter >= patience:
-            print("Early stopping attivato per mancanza di miglioramenti significativi.")
-            break
+    def valida_nodo(self):
+        """
+        Controlli base sul numero di figli e coerenza con tipo_nodo.
+        """
+        if self.tipo_nodo == "OPERATORE":
+            if self.valore == "NOT":
+                if len(self.figli) != 1:
+                    print("OPERATORE NOT deve avere 1 figlio, trovato", len(self.figli))
+                    return False
+            elif self.valore in self.OPERATORS:
+                if len(self.figli) != 2:
+                    print(f"OPERATORE {self.valore} deve avere 2 figli (binario).")
+                    return False
 
-    return popolazione
+        elif self.tipo_nodo == "QUANTIFICATORE":
+            # 2 figli: [nodo VARIABILE, sottoformula]
+            if len(self.figli) != 2:
+                print("QUANTIFICATORE deve avere 2 figli (VARIABILE, body).")
+                return False
+            if self.figli[0].tipo_nodo != "VARIABILE":
+                print("QUANTIFICATORE: primo figlio deve essere VARIABILE.")
+                return False
 
+        elif self.tipo_nodo == "PREDICATO":
+            # In questa rappresentazione, i predicati non hanno nodi figli (gli argomenti sono nel 'valore' string)
+            if len(self.figli) != 0:
+                print("PREDICATO deve avere 0 figli, trovato", len(self.figli))
+                return False
+
+        elif self.tipo_nodo == "VARIABILE":
+            # Nessun figlio
+            if len(self.figli) != 0:
+                print("VARIABILE deve avere 0 figli.")
+                return False
+
+        return True
+    
+    def __eq__(self, other):
+        if not isinstance(other, Nodo):
+            return False
+        return (
+            self.tipo_nodo == other.tipo_nodo and
+            self.valore == other.valore and
+            self.figli == other.figli
+        )
+
+    def __hash__(self):
+        return hash((self.tipo_nodo, self.valore, tuple(self.figli)))
+
+#################################################################
+# Parsing di predicato multi-argomento: "Dog(x,y,z)" -> ("Dog", ["x","y","z"])
+#################################################################
+
+def parse_predicato(value_str):
+    """
+    Esempi:
+    "Dog(x)"               -> ("Dog", ["x"])
+    "Parent(x, y)"         -> ("Parent", ["x","y"])
+    "Likes(x, y, z)"       -> ("Likes", ["x","y","z"])
+    """
+    if not value_str.endswith(")"):
+        raise ValueError(f"Predicato malformato: {value_str}")
+    idx_par = value_str.index("(")
+    pred_name = value_str[:idx_par]
+    args_str = value_str[idx_par+1:-1]  # es. "x,y"
+    arg_list = [arg.strip() for arg in args_str.split(",")]
+    # arg_list es. ["x","y"]
+    return pred_name, arg_list
+
+#################################################################
+# Funzioni di building formula LTN da un albero
+#################################################################
+
+def build_ltn_formula_node(nodo: Nodo, ltn_dict, scope_vars):
+    """
+    Dato un nodo (PREDICATO / OPERATORE / QUANTIFICATORE / VARIABILE), 
+    costruisce ricorsivamente la formula LTN corrispondente.
+    """
+    if nodo.tipo_nodo == "PREDICATO":
+        pred_name, var_names = parse_predicato(nodo.valore)
+        # Recupera l'oggetto LTN corrispondente
+        if pred_name not in ltn_dict:
+            raise ValueError(f"Predicato {pred_name} non definito in ltn_dict!")
+        ltn_pred = ltn_dict[pred_name]
+
+        # Converti i var_names in ltn.Variable
+        ltn_vars = []
+        for var_name in var_names:
+            if var_name not in scope_vars:
+                raise ValueError(f"Variabile {var_name} non presente in scope_vars!")
+            ltn_vars.append(scope_vars[var_name])
+
+        # Applica il predicato
+        return ltn_pred(*ltn_vars)
+
+    elif nodo.tipo_nodo == "VARIABILE":
+        # In logica LTN potresti semplicemente restituire scope_vars[nodo.valore]
+        var_name = nodo.valore
+        if var_name not in scope_vars:
+            raise ValueError(f"Variabile {var_name} non presente in scope_vars!")
+        return scope_vars[var_name]
+
+    elif nodo.tipo_nodo == "OPERATORE":
+        if nodo.valore == "NOT":
+            child_ltn = build_ltn_formula_node(nodo.figli[0], ltn_dict, scope_vars)
+            return ltn_dict["NOT"](child_ltn)
+        else:
+            left_ltn = build_ltn_formula_node(nodo.figli[0], ltn_dict, scope_vars)
+            right_ltn = build_ltn_formula_node(nodo.figli[1], ltn_dict, scope_vars)
+            op_obj = ltn_dict[nodo.valore]
+            return op_obj(left_ltn, right_ltn)
+
+    elif nodo.tipo_nodo == "QUANTIFICATORE":
+        quant_name = nodo.valore  # "FORALL" o "EXISTS"
+        var_node = nodo.figli[0]  # VARIABILE
+        body_node = nodo.figli[1]
+        new_var_name = var_node.valore
+
+        # scoping
+        new_scope = scope_vars.copy()
+        if new_var_name not in new_scope:
+            raise ValueError(f"Variabile {new_var_name} non definita in scope_vars!")
+        body_ltn = build_ltn_formula_node(body_node, ltn_dict, new_scope)
+        quant_op = ltn_dict[quant_name]
+        return quant_op(new_scope[new_var_name], body_ltn)
+
+    else:
+        raise ValueError(f"Nodo di tipo sconosciuto: {nodo.tipo_nodo}")
+
+
+#################################################################
+# Classe Albero
+#################################################################
+
+class Albero:
+    def __init__(self, VARIABLES, OPERATORS, QUANTIFIERS, PREDICATES):
+        """
+        Esempio di costruttore semplice: 
+        (QUANT var: (Pred(...var...) OP Pred(...var...)))
+        """
+        self.VARIABLES = VARIABLES
+        self.OPERATORS = OPERATORS
+        self.QUANTIFIERS = QUANTIFIERS
+        self.PREDICATES = PREDICATES
+
+        self.ultima_fitness = 0
+        self.stagnazione = 0
+
+        # Scegli una variabile
+        var = random.choice(self.VARIABLES)
+        var_node = Nodo("VARIABILE", var, [])
+
+        # Crea un operatore binario i cui predicati usano "var"
+        op = random.choice(self.OPERATORS)
+        left_pred = Nodo("PREDICATO", f"{random.choice(self.PREDICATES)}({var})")
+        right_pred = Nodo("PREDICATO", f"{random.choice(self.PREDICATES)}({var})")
+        operator_node = Nodo("OPERATORE", op, [left_pred, right_pred])
+
+        # Quantificatore
+        q = random.choice(self.QUANTIFIERS)
+        self.radice = Nodo("QUANTIFICATORE", q, [var_node, operator_node])
+
+        self.profondita = self.calcola_profondita(self.radice)
+
+    def copia(self):
+        nuovo = Albero.__new__(Albero)
+        nuovo.VARIABLES = self.VARIABLES
+        nuovo.OPERATORS = self.OPERATORS
+        nuovo.QUANTIFIERS = self.QUANTIFIERS
+        nuovo.PREDICATES = self.PREDICATES
+        nuovo.radice = self.radice.copia()
+        nuovo.profondita = self.profondita
+        nuovo.ultima_fitness = self.ultima_fitness
+        nuovo.stagnazione = self.stagnazione
+        return nuovo
+
+    def calcola_profondita(self, nodo):
+        if not nodo.figli:
+            return 1
+        return 1 + max(self.calcola_profondita(c) for c in nodo.figli)
+
+    def valida_albero(self):
+        stack = [self.radice]
+        albero_valido = True
+        while stack:
+            nodo = stack.pop()
+            if not nodo.valida_nodo():
+                albero_valido = False
+                break
+            stack.extend(nodo.figli)
+        return albero_valido
+    
+    def __repr__(self):
+        return str(self.radice)
+    
+    def __eq__(self, other):
+        if not isinstance(other, Albero):
+            return False
+        return self.radice == other.radice
+
+    def __hash__(self):
+        # Hash basato sulla radice dell'albero
+        return hash(self.radice)
+
+    def to_ltn_formula(self, ltn_dict, scope_vars):
+        """
+        Converte l'albero in formula LTN, 
+        assumendo che scope_vars contenga le ltn.Variable pertinenti.
+        """
+        try:
+            return build_ltn_formula_node(self.radice, ltn_dict, scope_vars)
+        except:
+            # resetto l'albero e ne genero uno nuovo
+            self.__init__(self.VARIABLES, self.OPERATORS, self.QUANTIFIERS, self.PREDICATES)
+            return build_ltn_formula_node(self.radice, ltn_dict, scope_vars)
+        
+    def update_liveness(self, fitness):
+        if fitness == self.ultima_fitness:
+            self.stagnazione += 1
+            self.ultima_fitness = fitness
+        
+        if self.stagnazione > 5:
+            print("---> restart")
+            self.__init__(self.VARIABLES, self.OPERATORS, self.QUANTIFIERS, self.PREDICATES)
+
+#################################################################
+# definizione delle funzioni
+#################################################################
+
+def formula1(kb_formulas):
+    # Formula 1: Cat(x) -> HasWhiskers(x)
+    var_x = Nodo("VARIABILE", "x")
+    cat_x = Nodo("PREDICATO", "Cat(x)")
+    has_whiskers_x = Nodo("PREDICATO", "HasWhiskers(x)")
+    implies_formula = Nodo("OPERATORE", "IMPLIES", [cat_x, has_whiskers_x])
+    formula1 = Nodo("QUANTIFICATORE", "FORALL", [var_x, implies_formula])
+    kb_formulas.append(formula1)
+
+def formula2(kb_formulas):
+    # Formula 2: Dog(x) -> NOT(Cat(x))
+    var_x = Nodo("VARIABILE", "x")
+    cat_x = Nodo("PREDICATO", "Cat(x)")
+    dog_x = Nodo("PREDICATO", "Dog(x)")
+    not_cat_x = Nodo("OPERATORE", "NOT", [cat_x])
+    implies_formula2 = Nodo("OPERATORE", "IMPLIES", [dog_x, not_cat_x])
+    formula2 = Nodo("QUANTIFICATORE", "FORALL", [var_x, implies_formula2])
+    kb_formulas.append(formula2)
+
+def formula3(kb_formulas):
+    # Formula 3: EXISTS x: Cat(x) OR Dog(x)
+    var_x = Nodo("VARIABILE", "x")
+    cat_x = Nodo("PREDICATO", "Cat(x)")
+    dog_x = Nodo("PREDICATO", "Dog(x)")
+    or_formula = Nodo("OPERATORE", "OR", [cat_x, dog_x])
+    formula3 = Nodo("QUANTIFICATORE", "EXISTS", [var_x, or_formula])
+    kb_formulas.append(formula3)
+
+
+
+#################################################################
+# get_all_nodes e replace_node_in_tree
+#################################################################
+
+def get_all_nodes(nodo):
+    nodes = [nodo]
+    for f in nodo.figli:
+        nodes.extend(get_all_nodes(f))
+    return nodes
+
+def replace_node_in_tree(tree: Nodo, old_node: Nodo, new_subtree: Nodo):
+    """
+    Se trova old_node in `tree` (per reference), lo sostituisce con new_subtree (deepcopy).
+    Restituisce il nodo sostituito (nuovo) oppure None se non trovato.
+    """
+    if tree is old_node:
+        tree.tipo_nodo = new_subtree.tipo_nodo
+        tree.valore = new_subtree.valore
+        tree.figli = [c.copia() for c in new_subtree.figli]
+        return tree
+
+    for i, child in enumerate(tree.figli):
+        if child is old_node:
+            inserted = new_subtree.copia()
+            tree.figli[i] = inserted
+            return inserted
+        else:
+            replaced = replace_node_in_tree(child, old_node, new_subtree)
+            if replaced is not None:
+                return replaced
+    return None
+
+#################################################################
+# CROSSOVER
+#################################################################
+
+def crossover(a1: Albero, a2: Albero, prob=0.8):
+    """
+    Esegue crossover su nodi di tipo OPERATORE (binario o NOT) o PREDICATO,
+    evitando QUANTIFICATORE e VARIABILE.
+    """
+    if random.random() > prob:
+        return a1.copia(), a2.copia()
+
+    c1 = a1.copia()
+    c2 = a2.copia()
+
+    n1_all = get_all_nodes(c1.radice)
+    n2_all = get_all_nodes(c2.radice)
+
+    def is_swappable(n):
+        return n.tipo_nodo in ["OPERATORE", "PREDICATO"]
+
+    n1 = [nd for nd in n1_all if is_swappable(nd)]
+    n2 = [nd for nd in n2_all if is_swappable(nd)]
+
+    if not n1 or not n2:
+        return c1, c2
+
+    old1 = random.choice(n1)
+    old2 = random.choice(n2)
+
+    sub1 = old1.copia()
+    sub2 = old2.copia()
+
+    inserted1 = replace_node_in_tree(c1.radice, old1, sub2)
+    inserted2 = replace_node_in_tree(c2.radice, old2, sub1)
+
+    c1.profondita = c1.calcola_profondita(c1.radice)
+    c2.profondita = c2.calcola_profondita(c2.radice)
+
+    return c1, c2
+
+#################################################################
+# MUTATE
+#################################################################
+
+def find_path(root, target):
+    if root is target:
+        return [root]
+    for child in root.figli:
+        subpath = find_path(child, target)
+        if subpath:
+            return [root] + subpath
+    return []
+
+def get_scope_vars(root, target):
+    path = find_path(root, target)
+    if not path:
+        return []
+    scope_vars = []
+    for node in path:
+        if node.tipo_nodo == "QUANTIFICATORE":
+            scope_vars.append(node.figli[0].valore)
+    return scope_vars
+
+def mutate(albero: Albero, prob=0.3):
+    """
+    Esempio di mutazione:
+    - Cambia operatore (binario)
+    - Cambia predicato (att.ne multi-argument)
+    - Aggiungi NOT a un predicato
+    - Avvolgi in quantificatore
+    """
+    if random.random() > prob:
+        return albero.copia()
+
+    new_tree = albero.copia()
+    nodes_all = get_all_nodes(new_tree.radice)
+
+    def is_mutable(n):
+        return n.tipo_nodo in ["OPERATORE", "PREDICATO"]
+
+    candidates = [nd for nd in nodes_all if is_mutable(nd)]
+    if not candidates:
+        return new_tree
+
+    target = random.choice(candidates)
+    r = random.random()
+
+    # 1) Cambiare operatore binario
+    if target.tipo_nodo == "OPERATORE" and target.valore in albero.OPERATORS and r < 0.25:
+        old_op = target.valore
+        new_op = random.choice([op for op in albero.OPERATORS if op != old_op])
+        target.valore = new_op
+
+    # 2) Cambiare predicato (multi-arg)
+    elif target.tipo_nodo == "PREDICATO" and r < 0.5:
+        scopevars = get_scope_vars(new_tree.radice, target)
+        if not scopevars:
+            var_list = ["x"]  # fallback
+        else:
+            # potresti sceglierne 1 o 2 da scopevars
+            # per semplicità scegliamo 1
+            var_list = [random.choice(scopevars)]
+        new_pred = random.choice(albero.PREDICATES)  # usiamo la PREDICATES da new_tree
+        # se vuoi multipli argomenti: decidi random
+        # es. 50% di 2 argomenti
+        if random.random() < 0.5 and len(scopevars) > 1:
+            var_list.append(random.choice(scopevars))
+        # costruiamo "pred(var1, var2, ...)"
+        var_str = ",".join(var_list)
+        target.valore = f"{new_pred}({var_str})"
+
+    # 3) Aggiungi negazione se PREDICATO
+    elif target.tipo_nodo == "PREDICATO" and r < 0.75:
+        not_node = Nodo("OPERATORE", "NOT", [target.copia()])
+        replace_node_in_tree(new_tree.radice, target, not_node)
+
+    # 4) Avvolgi in quantificatore
+    else:
+        if target.tipo_nodo != "PREDICATO" and target.figli:
+            # Scegli una var a caso
+            new_var = random.choice(albero.VARIABLES)
+            var_node = Nodo("VARIABILE", new_var, [])
+            q = random.choice(albero.QUANTIFIERS)
+            qnode = Nodo("QUANTIFICATORE", q, [var_node, target.copia()])
+            replace_node_in_tree(new_tree.radice, target, qnode)
+
+    new_tree.profondita = new_tree.calcola_profondita(new_tree.radice)
+    return new_tree
+
+
+# Example of a small MLP for a unary predicate
+def make_unary_predicate(in_features=2, hidden1=8, hidden2=4):
+    return nn.Sequential(
+        nn.Linear(in_features, hidden1),
+        nn.ReLU(),
+        nn.Linear(hidden1, hidden2),
+        nn.ReLU(),
+        nn.Linear(hidden2, 1),
+        nn.Sigmoid()  # output in [0,1]
+    )
+
+
+def get_neighbors(popolazione, i, j):
+    neighbors = []
+    # elenco delle possibili direzioni
+    directions = [(-1, -1), (-1, 0), (-1, 1),
+                  (0, -1),           (0, 1),
+                  (1, -1),  (1, 0),  (1, 1)]
+
+    for di, dj in directions:
+        x = i + di
+        y = j + dj
+        # verifica che x,y siano entro i limiti di popolazione
+        if 0 <= x < popolazione.shape[0] and 0 <= y < popolazione.shape[1]:
+            # Salvo TUTTO ciò che mi serve: (i_vicino, j_vicino, albero, fitness)
+            neighbors.append((x, y, popolazione[x, y][0], popolazione[x, y][1]))
+    return neighbors
+
+
+def measure_kb_sat(kb_rules, kb_facts, variabili, costanti):
+    total = 0.0
+    count = 0
+    for rule in kb_rules:
+        for var_name in variabili:
+            val = rule(variabili[var_name]).value
+            total += val.mean().item()
+            count += 1
+    for c_name in costanti:
+        for fact in kb_facts:
+            val = fact(costanti[c_name]).value
+            total += val.mean().item()
+            count += 1
+    return total / max(count, 1)
+
+def make_new_rule(albero, ltn_dict, variabili):
+    """
+    Ritorna una funzione regola: data una x, ricostruisce la formula dall'albero
+    e la valuta, restituendo un LTNObject fresco ogni volta.
+    """
+    def rule_function(x):
+        # Ricostruisce la formula dal tuo albero
+        # in questo modo ogni volta che 'rule_function' è chiamata,
+        # si rifà il forward pass e crea un nuovo grafo PyTorch.
+        ltn_formula = albero.to_ltn_formula(ltn_dict, variabili)
+        return ltn_formula  # LTNObject "nuovo"
+    return rule_function
+
+
+def print_kb_status(kb_rules, kb_facts, variabili, costanti):
+    print("\n--- Stato della Knowledge Base ---")
+    print("\n**Regole:**")
+    for i, rule in enumerate(kb_rules, 1):
+        for var_name in variabili:
+            val = rule(variabili[var_name]).value
+            print(f"Regola {i}, Variabile '{var_name}': {val.item():.4f}, {rule}")
+    
+    print("\n**Fatti:**")
+    for i, fact in enumerate(kb_facts, 1):
+        for costante_name in costanti:
+            val = fact(costanti[costante_name]).value
+            print(f"Fatto {i}, Costante '{costante_name}': {val.item():.4f}")
+    print("---------------------------------\n")

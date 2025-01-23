@@ -2,7 +2,7 @@ import ltn
 import torch
 import ltn.fuzzy_ops as fuzzy_ops
 import torch.nn as nn
-from structure import Nodo, build_ltn_formula_node, make_unary_predicate
+
 # Definizione della KB
 def create_kb(predicati, quantificatori, operatori, costanti):
     
@@ -10,7 +10,7 @@ def create_kb(predicati, quantificatori, operatori, costanti):
     
     # Regola 2: ∀x (Animal(x) → ¬Fly(x)) – "Gli animali non possono di solito volare"
     def formula_animal_implies_not_fly(x):
-        return operatori["IMPLIES"](predicati["Animal"](x), operatori["NOT"](predicati["Fly"](x)))
+        return operatori["OR"](operatori["AND"](predicati["Animal"](x), predicati["Fly"](x)), operatori["AND"](predicati["Animal"](x), operatori["NOT"](predicati["Fly"](x))))
     
     # Regola 3: ∀x (Bird(x) → Fly(x)) – "Gli uccelli possono volare"
     def formula_bird_implies_fly(x):
@@ -57,7 +57,8 @@ def create_kb(predicati, quantificatori, operatori, costanti):
 
     facts_mapping = {
         "Marcus": ["Swallow"],    # "Marcus è una rondine"
-        "Tweety": ["Penguin"]     # "Tweety è un pinguino"
+        "Pingu": ["Penguin"],    # "Tweety è un pinguino"
+        #"Hitler" : ["Animal"]
     }
 
     kb_facts = []
@@ -78,7 +79,7 @@ def setup_ltn(costanti, predicati, quantificatori, operatori, variabili, kb_rule
     optimizer = torch.optim.Adam(parameters, lr=0.01)
 
     # Training Loop
-    epochs = 1000
+    epochs = 200
     for epoch in range(epochs):
         optimizer.zero_grad()
         loss = 1 - kb_loss(kb_rules, kb_facts, variabili, costanti)
