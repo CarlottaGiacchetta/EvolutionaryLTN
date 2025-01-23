@@ -31,57 +31,58 @@ def compute_fitness(popolazione, ltn_dict, variabili, is_matrix):
     return popolazione
 
 
-def popolazione_init(population_size, is_matrix, predicati, quantificatori, operatori, variabili):
+def popolazione_init(population_size, is_matrix, PREDICATES, QUANTIFIERS, OPERATORS, VARIABLES, ltn_dict, variabili):
     if is_matrix:
         matrix_size = int(np.sqrt(population_size))
-        print(matrix_size)
         popolazione = compute_fitness(np.array([
             [
                 [Albero(VARIABLES=VARIABLES, OPERATORS=OPERATORS, QUANTIFIERS=QUANTIFIERS, PREDICATES=PREDICATES), 0] # individuo e fitness --> massimizzare
                 for _ in range(matrix_size)
             ] for _ in range(matrix_size)
         ]),
-            ltn_dict={**predicati, **quantificatori, **operatori},
+            ltn_dict=ltn_dict,
             variabili=variabili,
             is_matrix=is_matrix)
     else:
         # Genera la popolazione come lista di liste con individui inizializzati e fitness iniziale a 0
+
         popolazione = [
         [Albero(VARIABLES=VARIABLES, OPERATORS=OPERATORS, QUANTIFIERS=QUANTIFIERS, PREDICATES=PREDICATES), 0]
         for _ in range(population_size)]
         popolazione = compute_fitness(
         popolazione,
-        ltn_dict={**predicati, **quantificatori, **operatori},
+        ltn_dict=ltn_dict,
         variabili=variabili,
         is_matrix=is_matrix
     )
     return popolazione
 
-def compute_fitness_singolo(individuo, ltn_dict, variabili, kb_formulas):
+def compute_fitness_singolo(individuo, ltn_dict, variabili):
     predicati = [nodo for nodo in get_all_nodes(individuo.radice) if nodo.tipo_nodo == "PREDICATO"]
     formula = individuo.to_ltn_formula(ltn_dict, variabili)
     
-    fitness = formula.value.item()*4
+    fitness = formula.value.item()
     # Penalizza se ci sono duplicati
     if len(predicati) != len(set(predicati)):
-        fitness -=1
+        fitness *= 0.6
     if individuo.profondita > 6:
-        fitness *= 0.5
+        fitness *= 0.9
     return fitness 
 
 
-def fitness_proportionate_selection(population, num_to_select=2):
+def fitness_proportionate_selection(population, is_matrix, num_to_select=2):
     fitness_values = [individual[-1] for individual in population]
     total_fitness = sum(fitness_values)
     probabilities = [fitness / total_fitness for fitness in fitness_values]
 
     # Seleziona individui in base alle probabilità
     selected_individuals = random.choices(population, weights=probabilities, k=num_to_select)
-    #selected_as_albero = [individual[0] for individual in selected_individuals]
-    
     return selected_individuals
 
-def fitness_proportionate_selection_modern(population, num_to_select=2, x=0.32):
+    
+    
+
+def fitness_proportionate_selection_modern(population, is_matrix, num_to_select=2, x=0.32):
     """
     Modern GP selection with "over-selection":
     - Divide the population into two groups by fitness: top x% and the rest.
@@ -95,8 +96,9 @@ def fitness_proportionate_selection_modern(population, num_to_select=2, x=0.32):
     Returns:
         list: Selected individuals from the population.
     """
-    
     sorted_population = sorted(population, key=lambda ind: ind[-1], reverse=True)
+        
+
     top_group_size = max(1, int(len(sorted_population) * x))
     top_group = sorted_population[:top_group_size]
     bottom_group = sorted_population[top_group_size:]
@@ -109,28 +111,28 @@ def fitness_proportionate_selection_modern(population, num_to_select=2, x=0.32):
             selected = random.choice(bottom_group)
         else: 
             selected = random.choice(sorted_population)
-        selected_individuals.append(selected[0])
+        selected_individuals.append(selected)
 
     return selected_individuals
 
 
 
 
-def evolutionary_run_GP(popolazione, generations, ltn_dict, variabili, operatori, metodo, is_matrix, num_offspring, kb_formulas):
+def evolutionary_run_GP(popolazione, generations, ltn_dict, variabili, operatori, metodo, is_matrix, num_offspring):
     if is_matrix:
         for generation in range(generations):
-            print(f"\n--- Generazione {generation + 1}/{generations} ---")
+            #print(f"\n--- Generazione {generation + 1}/{generations} ---")
             for i in range(popolazione.shape[0]):
                 for j in range(popolazione.shape[1]):
                     vicini = get_neighbors(popolazione, i, j)
                     vicini.sort(key=lambda x: x[3], reverse=True)
-                    parents = metodo(vicini, num_to_select=1)
+                    parents = metodo(vicini, is_matrix=is_matrix, num_to_select=1)
                     parents = [individual[2] for individual in parents]
                     child1, child2 = crossover(parents[0], popolazione[i,j][0], prob=0.8)
                     child1 = mutate(child1, prob=0.2)
                     child2 = mutate(child2, prob=0.4)
-                    fit_child1 = compute_fitness_singolo(child1, ltn_dict, variabili, kb_formulas)
-                    fit_child2 = compute_fitness_singolo(child2, ltn_dict, variabili, kb_formulas)
+                    fit_child1 = compute_fitness_singolo(child1, ltn_dict, variabili)
+                    fit_child2 = compute_fitness_singolo(child2, ltn_dict, variabili)
                     if fit_child1 > fit_child2:
                         popolazione[i,j][0] = child1
                         popolazione[i,j][1] = fit_child1
@@ -143,15 +145,15 @@ def evolutionary_run_GP(popolazione, generations, ltn_dict, variabili, operatori
         for generation in range(generations):
             parent_list = []
             child_list = []
+            #print(f"\n--- Generazione {generation + 1}/{generations} ---")
             for _ in range(num_offspring):
-                print(f"\n--- Generazione {generation + 1}/{generations} ---")
-                parents = metodo(popolazione)
+                parents = metodo(popolazione, is_matrix=is_matrix)
                 parents = [individual[0] for individual in parents]
                 child1, child2 = crossover(parents[0], parents[1], prob=0.8)
                 child1 = mutate(child1, prob=0.2)
                 child2 = mutate(child2, prob=0.2)
-                fit_child1 = compute_fitness_singolo(child1, ltn_dict, variabili, kb_formulas)
-                fit_child2 = compute_fitness_singolo(child2, ltn_dict, variabili, kb_formulas)
+                fit_child1 = compute_fitness_singolo(child1, ltn_dict, variabili)
+                fit_child2 = compute_fitness_singolo(child2, ltn_dict, variabili)
 
                 parent_list.append(parents[0])
                 child_list.append([child1, fit_child1])

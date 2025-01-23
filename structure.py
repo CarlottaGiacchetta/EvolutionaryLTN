@@ -252,6 +252,15 @@ class Albero:
             # resetto l'albero e ne genero uno nuovo
             self.__init__(self.VARIABLES, self.OPERATORS, self.QUANTIFIERS, self.PREDICATES)
             return build_ltn_formula_node(self.radice, ltn_dict, scope_vars)
+        
+    def __eq__(self, other):
+        if not isinstance(other, Albero):
+            return False
+        return self.radice == other.radice
+
+    def __hash__(self):
+        # Hash basato sulla radice dell'albero
+        return hash(self.radice)
 
 #################################################################
 # definizione delle funzioni
