@@ -7,9 +7,10 @@ from structure import *
 from utils import *
 
 # Define the parameters for the Genetic Algorithm
-population_size = 50  # Set the population size
+population_size = 49  # Set the population size
 generations = 100     # Set the number of generations
 num_offspring = 5     # Set the number of offspring per generation
+is_matrix = True
 
 # Define the selection method (you can choose from your available methods)
 metodo = fitness_proportionate_selection  # Use fitness_proportionate_selection for selection
@@ -72,7 +73,7 @@ ltn_dict.update(operatori)
 
 # Initialize Population
 popolazione = popolazione_init(population_size=population_size, 
-                           is_matrix=False, 
+                           is_matrix=is_matrix, 
                            PREDICATES=PREDICATES, 
                            QUANTIFIERS=QUANTIFIERS, 
                            OPERATORS=OPERATORS, 
@@ -80,7 +81,7 @@ popolazione = popolazione_init(population_size=population_size,
                            ltn_dict={**predicati, **quantificatori, **operatori}, 
                            variabili=variabili)
 
-
+print(popolazione)
 # Esecuzione
 popolazione_finale = evolutionary_run_GA(
         popolazione,
@@ -89,16 +90,25 @@ popolazione_finale = evolutionary_run_GA(
         variabili=variabili,
         operatori=operatori,
         metodo=metodo,
-        is_matrix=False,
+        is_matrix=is_matrix,
         population_size=population_size
 )
 
-# Ordinamento della popolazione in base alla fitness in ordine decrescente
-popolazione_ordinata = sorted(
-    popolazione_finale,
-    key=lambda x: x[1],  # Ordina per fitness
-    reverse=True  # Ordine decrescente
-)
+if is_matrix:
+    # Ordinamento della popolazione in base alla fitness in ordine decrescente
+    popolazione_ordinata = sorted(
+        (individuo for row in popolazione_finale for individuo in row),
+        key=lambda x: x[1],  # Ordina per fitness
+        reverse=True  # Ordine decrescente
+    )
+
+else:
+    # Ordinamento della popolazione in base alla fitness in ordine decrescente
+    popolazione_ordinata = sorted(
+        (individuo for individuo in popolazione_finale),
+        key=lambda x: x[1],  # Ordina per fitness
+        reverse=True  # Ordine decrescente
+    )
 
 # Miglior individuo finale
 migliori = popolazione_ordinata[:5]

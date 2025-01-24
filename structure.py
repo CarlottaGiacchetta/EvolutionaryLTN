@@ -1,7 +1,21 @@
 import random
 import copy
 import torch.nn as nn
+import ltn
+import torch
+import ltn.fuzzy_ops as fuzzy_ops
 
+
+operatori = {
+    # operatori
+    "AND": ltn.core.Connective(fuzzy_ops.AndProd()),
+    "OR": ltn.core.Connective(fuzzy_ops.OrMax()),
+    "IMPLIES": ltn.core.Connective(fuzzy_ops.ImpliesLuk()),
+    "NOT": ltn.core.Connective(fuzzy_ops.NotStandard()),
+}
+
+# prendo le chiavi e faccio le variabili
+OPERATORS = [k for k in operatori.keys()]
 
 #################################################################
 # Definizione del Nodo

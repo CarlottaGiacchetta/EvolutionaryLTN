@@ -87,7 +87,8 @@ def compute_fitness_string(formula_str, ltn_dict, variabili):
         fitness = compute_fitness_singolo(formula, ltn_dict, variabili)
         return fitness
     except:
-        return 0
+        print('except')
+        return 0.1
 
 
 
@@ -202,44 +203,77 @@ def evolutionary_run_GP(popolazione, generations, ltn_dict, variabili, operatori
 
 
 # Main Genetic Algorithm Loop with string-based individuals
-def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori, metodo, is_matrix, population_size):
+def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori, metodo, is_matrix, population_size, first=True):
     """
     Perform the genetic algorithm using formula strings instead of tree structures.
     """
+    print(first)
     
+    if is_matrix:
+        if first:
+            # Convert individuals to string representation for GA operations
+            for i in range(popolazione.shape[0]):
+                for j in range(popolazione.shape[1]):
+                    individuo = popolazione[i][j][0]
+                    individuo_str = Albero.albero_to_string(individuo)
+                    popolazione[i][j][0] = individuo_str  # Replace with string representation
+                    first=False
 
-    # Convert individuals to string representation for GA operations
-    for i in range(len(popolazione)):
-        individuo = popolazione[i][0]
-        individuo_str = Albero.albero_to_string(individuo)
-        popolazione[i][0] = individuo_str  # Replace with string representation
+        for generation in range(generations):
+            for i in range(popolazione.shape[0]):
+                for j in range(popolazione.shape[1]):
+                    vicini = get_neighbors(popolazione, i, j)
+                    vicini.sort(key=lambda x: x[3], reverse=True)
+                    parents = metodo(vicini, is_matrix=is_matrix, num_to_select=1)
+                    parents = [individual[2] for individual in parents]
+                    child1_str, child2_str = crossover_string(parents[0], popolazione[i,j][0])
+                    child1_str = mutate_string(child1_str)
+                    child2_str = mutate_string(child2_str)
+                    # Evaluate fitness of the offspring
+                    fit_child1 = compute_fitness_string(child1_str, ltn_dict, variabili)
+                    fit_child2 = compute_fitness_string(child2_str, ltn_dict, variabili)
+                    if fit_child1 > fit_child2:
+                        popolazione[i,j][0] = child1_str
+                        popolazione[i,j][1] = fit_child1
+                    else:
+                        popolazione[i,j][0] = child2_str
+                        popolazione[i,j][1] = fit_child2
+    
+    else:
+        if first:
+            # Convert individuals to string representation for GA operations
+            for i in range(len(popolazione)):
+                individuo = popolazione[i][0]
+                individuo_str = Albero.albero_to_string(individuo)
+                popolazione[i][0] = individuo_str  # Replace with string representation
+                first=False
 
-    for generation in range(generations):
-        print(f"--- Generazione {generation + 1}/{generations} ---")
-        
-        # Selection: Select parents based on fitness
-        selected_parents = metodo(popolazione, is_matrix, num_to_select=2)
+        for generation in range(generations):
+            print(f"--- Generazione {generation + 1}/{generations} ---")
+            
+            # Selection: Select parents based on fitness
+            selected_parents = metodo(popolazione, is_matrix, num_to_select=2)
 
-        # Crossover: Produce offspring by combining parents
-        child1_str, child2_str = crossover_string(selected_parents[0][0], selected_parents[1][0])
+            # Crossover: Produce offspring by combining parents
+            child1_str, child2_str = crossover_string(selected_parents[0][0], selected_parents[1][0])
 
-        # Mutation: Apply mutation to offspring
-        child1_str = mutate_string(child1_str)
-        child2_str = mutate_string(child2_str)
+            # Mutation: Apply mutation to offspring
+            child1_str = mutate_string(child1_str)
+            child2_str = mutate_string(child2_str)
 
-        # Evaluate fitness of the offspring
-        fit_child1 = compute_fitness_string(child1_str, ltn_dict, variabili)
-        fit_child2 = compute_fitness_string(child2_str, ltn_dict, variabili)
+            # Evaluate fitness of the offspring
+            fit_child1 = compute_fitness_string(child1_str, ltn_dict, variabili)
+            fit_child2 = compute_fitness_string(child2_str, ltn_dict, variabili)
 
-        # Select the best offspring to replace old population
-        new_individuals = [(child1_str, fit_child1), (child2_str, fit_child2)]
+            # Select the best offspring to replace old population
+            new_individuals = [(child1_str, fit_child1), (child2_str, fit_child2)]
 
-        # Update population (elitism strategy, keeping the best individuals)
-        population_with_new_offspring = sorted(popolazione + new_individuals, key=lambda x: x[1], reverse=True)
-        popolazione = population_with_new_offspring[:population_size]  # Keep only the best individuals
+            # Update population (elitism strategy, keeping the best individuals)
+            population_with_new_offspring = sorted(popolazione + new_individuals, key=lambda x: x[1], reverse=True)
+            popolazione = population_with_new_offspring[:population_size]  # Keep only the best individuals
 
-        # Print current best individual in the population
-        best_individual = popolazione[0]
-        print(f"Best individual in generation {generation + 1}: {best_individual[0]} with fitness: {best_individual[1]}")
+            # Print current best individual in the population
+            best_individual = popolazione[0]
+            print(f"Best individual in generation {generation + 1}: {best_individual[0]} with fitness: {best_individual[1]}")
 
     return popolazione
