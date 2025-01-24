@@ -2,11 +2,6 @@ import random
 import copy
 import torch.nn as nn
 
-# Liste di possibili scelte
-OPERATORS = ["AND", "OR", "IMPLIES"]
-QUANTIFIERS = ["FORALL", "EXISTS"]
-PREDICATES = ["Cat", "HasWhiskers", "Dog"]#, "Parent", "Likes", "Owner"
-VARIABLES = ["x"]  # , "y" Puoi aggiungerne altre, es. "z"
 
 #################################################################
 # Definizione del Nodo
@@ -186,7 +181,7 @@ def build_ltn_formula_node(nodo: Nodo, ltn_dict, scope_vars):
 #################################################################
 
 class Albero:
-    def __init__(self, VARIABLES=VARIABLES, OPERATORS=OPERATORS, QUANTIFIERS=QUANTIFIERS, PREDICATES=PREDICATES):
+    def __init__(self, VARIABLES, OPERATORS, QUANTIFIERS, PREDICATES):
         """
         Esempio di costruttore semplice: 
         (QUANT var: (Pred(...var...) OP Pred(...var...)))
@@ -252,6 +247,12 @@ class Albero:
             # resetto l'albero e ne genero uno nuovo
             self.__init__(self.VARIABLES, self.OPERATORS, self.QUANTIFIERS, self.PREDICATES)
             return build_ltn_formula_node(self.radice, ltn_dict, scope_vars)
+    
+    def albero_to_string(albero):
+        """
+        Convert an Albero object (logical tree) into a string representation.
+        """
+        return str(albero.radice)
         
     def __eq__(self, other):
         if not isinstance(other, Albero):
@@ -369,6 +370,25 @@ def crossover(a1: Albero, a2: Albero, prob=0.8):
 
     return c1, c2
 
+
+# Crossover operation for logical formula strings
+def crossover_string(str1, str2):
+    """
+    Perform a crossover operation on two logical formula strings.
+    The crossover will randomly combine parts of the two strings.
+    """
+    parts1 = str1.split()
+    parts2 = str2.split()
+    
+    crossover_point1 = random.randint(0, len(parts1) - 1)
+    crossover_point2 = random.randint(0, len(parts2) - 1)
+    
+    # Swap parts after crossover points
+    new_str1 = " ".join(parts1[:crossover_point1] + parts2[crossover_point2:])
+    new_str2 = " ".join(parts2[:crossover_point2] + parts1[crossover_point1:])
+    
+    return new_str1, new_str2
+
 #################################################################
 # MUTATE
 #################################################################
@@ -457,6 +477,21 @@ def mutate(albero: Albero, prob=0.3):
 
     new_tree.profondita = new_tree.calcola_profondita(new_tree.radice)
     return new_tree
+
+
+# Mutation operation for logical formula strings
+def mutate_string(formula_str):
+    """
+    Perform a mutation on a logical formula string.
+    This could involve changing a predicate, operator, or variable.
+    """
+    words = formula_str.split()
+    mutation_point = random.randint(0, len(words) - 1)
+    mutated_word = random.choice(["Cat", "Dog", "HasWhiskers", "AND", "OR", "NOT", "IMPLIES"])
+    
+    words[mutation_point] = mutated_word
+    return " ".join(words)
+
 
 
 # Example of a small MLP for a unary predicate

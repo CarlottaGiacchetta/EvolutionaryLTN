@@ -2,6 +2,40 @@ from kb import *
 from structure import *
 import numpy as np
 
+#################################################################
+# COMPUTE INITIAL POPULATION
+#################################################################
+
+def popolazione_init(population_size, is_matrix, PREDICATES, QUANTIFIERS, OPERATORS, VARIABLES, ltn_dict, variabili):
+    if is_matrix:
+        matrix_size = int(np.sqrt(population_size))
+        popolazione = compute_fitness(np.array([
+            [
+                [Albero(VARIABLES=VARIABLES, OPERATORS=OPERATORS, QUANTIFIERS=QUANTIFIERS, PREDICATES=PREDICATES), 0] # individuo e fitness --> massimizzare
+                for _ in range(matrix_size)
+            ] for _ in range(matrix_size)
+        ]),
+            ltn_dict=ltn_dict,
+            variabili=variabili,
+            is_matrix=is_matrix)
+    else:
+        # Genera la popolazione come lista di liste con individui inizializzati e fitness iniziale a 0
+
+        popolazione = [
+        [Albero(VARIABLES=VARIABLES, OPERATORS=OPERATORS, QUANTIFIERS=QUANTIFIERS, PREDICATES=PREDICATES), 0]
+        for _ in range(population_size)]
+        popolazione = compute_fitness(
+        popolazione,
+        ltn_dict=ltn_dict,
+        variabili=variabili,
+        is_matrix=is_matrix
+    )
+    return popolazione
+
+
+#################################################################
+# FITNESS
+#################################################################
 
 def compute_fitness(popolazione, ltn_dict, variabili, is_matrix):
     if is_matrix:
@@ -31,32 +65,6 @@ def compute_fitness(popolazione, ltn_dict, variabili, is_matrix):
     return popolazione
 
 
-def popolazione_init(population_size, is_matrix, PREDICATES, QUANTIFIERS, OPERATORS, VARIABLES, ltn_dict, variabili):
-    if is_matrix:
-        matrix_size = int(np.sqrt(population_size))
-        popolazione = compute_fitness(np.array([
-            [
-                [Albero(VARIABLES=VARIABLES, OPERATORS=OPERATORS, QUANTIFIERS=QUANTIFIERS, PREDICATES=PREDICATES), 0] # individuo e fitness --> massimizzare
-                for _ in range(matrix_size)
-            ] for _ in range(matrix_size)
-        ]),
-            ltn_dict=ltn_dict,
-            variabili=variabili,
-            is_matrix=is_matrix)
-    else:
-        # Genera la popolazione come lista di liste con individui inizializzati e fitness iniziale a 0
-
-        popolazione = [
-        [Albero(VARIABLES=VARIABLES, OPERATORS=OPERATORS, QUANTIFIERS=QUANTIFIERS, PREDICATES=PREDICATES), 0]
-        for _ in range(population_size)]
-        popolazione = compute_fitness(
-        popolazione,
-        ltn_dict=ltn_dict,
-        variabili=variabili,
-        is_matrix=is_matrix
-    )
-    return popolazione
-
 def compute_fitness_singolo(individuo, ltn_dict, variabili):
     predicati = [nodo for nodo in get_all_nodes(individuo.radice) if nodo.tipo_nodo == "PREDICATO"]
     formula = individuo.to_ltn_formula(ltn_dict, variabili)
@@ -69,6 +77,23 @@ def compute_fitness_singolo(individuo, ltn_dict, variabili):
         fitness *= 0.9
     return fitness 
 
+# Compute the fitness for a string-based logical formula
+def compute_fitness_string(formula_str, ltn_dict, variabili):
+    """
+    Compute the fitness of a logical formula string.
+    """
+    try:
+        formula = Nodo("PREDICATO", formula_str)  # Dummy placeholder
+        fitness = compute_fitness_singolo(formula, ltn_dict, variabili)
+        return fitness
+    except:
+        return 0
+
+
+
+#################################################################
+# SELECTION METHODS
+#################################################################
 
 def fitness_proportionate_selection(population, is_matrix, num_to_select=2):
     fitness_values = [individual[-1] for individual in population]
@@ -80,8 +105,6 @@ def fitness_proportionate_selection(population, is_matrix, num_to_select=2):
     return selected_individuals
 
     
-    
-
 def fitness_proportionate_selection_modern(population, is_matrix, num_to_select=2, x=0.32):
     """
     Modern GP selection with "over-selection":
@@ -116,7 +139,9 @@ def fitness_proportionate_selection_modern(population, is_matrix, num_to_select=
     return selected_individuals
 
 
-
+#################################################################
+# EVOLUTIONARY RUN
+#################################################################
 
 def evolutionary_run_GP(popolazione, generations, ltn_dict, variabili, operatori, metodo, is_matrix, num_offspring):
     if is_matrix:
@@ -172,5 +197,49 @@ def evolutionary_run_GP(popolazione, generations, ltn_dict, variabili, operatori
             random.shuffle(child_list_new)
             for i in range(eliminati):
                 popolazione.append(child_list_new[i])
+
+    return popolazione
+
+
+# Main Genetic Algorithm Loop with string-based individuals
+def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori, metodo, is_matrix, population_size):
+    """
+    Perform the genetic algorithm using formula strings instead of tree structures.
+    """
+    
+
+    # Convert individuals to string representation for GA operations
+    for i in range(len(popolazione)):
+        individuo = popolazione[i][0]
+        individuo_str = Albero.albero_to_string(individuo)
+        popolazione[i][0] = individuo_str  # Replace with string representation
+
+    for generation in range(generations):
+        print(f"--- Generazione {generation + 1}/{generations} ---")
+        
+        # Selection: Select parents based on fitness
+        selected_parents = metodo(popolazione, is_matrix, num_to_select=2)
+
+        # Crossover: Produce offspring by combining parents
+        child1_str, child2_str = crossover_string(selected_parents[0][0], selected_parents[1][0])
+
+        # Mutation: Apply mutation to offspring
+        child1_str = mutate_string(child1_str)
+        child2_str = mutate_string(child2_str)
+
+        # Evaluate fitness of the offspring
+        fit_child1 = compute_fitness_string(child1_str, ltn_dict, variabili)
+        fit_child2 = compute_fitness_string(child2_str, ltn_dict, variabili)
+
+        # Select the best offspring to replace old population
+        new_individuals = [(child1_str, fit_child1), (child2_str, fit_child2)]
+
+        # Update population (elitism strategy, keeping the best individuals)
+        population_with_new_offspring = sorted(popolazione + new_individuals, key=lambda x: x[1], reverse=True)
+        popolazione = population_with_new_offspring[:population_size]  # Keep only the best individuals
+
+        # Print current best individual in the population
+        best_individual = popolazione[0]
+        print(f"Best individual in generation {generation + 1}: {best_individual[0]} with fitness: {best_individual[1]}")
 
     return popolazione
