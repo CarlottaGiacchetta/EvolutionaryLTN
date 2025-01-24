@@ -9,8 +9,8 @@ from utils import *
 # Define the parameters for the Genetic Algorithm
 population_size = 49  # Set the population size
 generations = 100     # Set the number of generations
-num_offspring = 5     # Set the number of offspring per generation
-is_matrix = True
+num_offspring = 20     # Set the number of offspring per generation
+is_matrix = False
 
 # Define the selection method (you can choose from your available methods)
 metodo = fitness_proportionate_selection  # Use fitness_proportionate_selection for selection
@@ -91,7 +91,8 @@ popolazione_finale = evolutionary_run_GA(
         operatori=operatori,
         metodo=metodo,
         is_matrix=is_matrix,
-        population_size=population_size
+        population_size=population_size,
+        num_offspring = num_offspring
 )
 
 if is_matrix:

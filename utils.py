@@ -203,6 +203,92 @@ def evolutionary_run_GP(popolazione, generations, ltn_dict, variabili, operatori
 
 
 # Main Genetic Algorithm Loop with string-based individuals
+def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori, metodo, is_matrix,population_size, num_offspring, first=True,):
+    """
+    Perform the genetic algorithm using formula strings instead of tree structures.
+    """
+    print(first)
+    
+    if is_matrix:
+        if first:
+            # Convert individuals to string representation for GA operations
+            for i in range(popolazione.shape[0]):
+                for j in range(popolazione.shape[1]):
+                    individuo = popolazione[i][j][0]
+                    individuo_str = Albero.albero_to_string(individuo)
+                    popolazione[i][j][0] = individuo_str  # Replace with string representation
+                    first = False
+
+        for generation in range(generations):
+            for i in range(popolazione.shape[0]):
+                for j in range(popolazione.shape[1]):
+                    vicini = get_neighbors(popolazione, i, j)
+                    vicini.sort(key=lambda x: x[3], reverse=True)
+                    parents = metodo(vicini, is_matrix=is_matrix, num_to_select=1)
+                    parents = [individual[2] for individual in parents]
+                    child_list = []
+
+                    while len(child_list) < num_offspring:
+                        child1_str, child2_str = crossover_string(parents[0], popolazione[i, j][0])
+                        child1_str = mutate_string(child1_str)
+                        child2_str = mutate_string(child2_str)
+                        fit_child1 = compute_fitness_string(child1_str, ltn_dict, variabili)
+                        fit_child2 = compute_fitness_string(child2_str, ltn_dict, variabili)
+
+                        child_list.append((child1_str, fit_child1))
+                        if len(child_list) < num_offspring:
+                            child_list.append((child2_str, fit_child2))
+
+                    best_child = max(child_list, key=lambda x: x[1])
+                    popolazione[i, j][0] = best_child[0]
+                    popolazione[i, j][1] = best_child[1]
+
+    else:
+        if first:
+            # Convert individuals to string representation for GA operations
+            for i in range(len(popolazione)):
+                individuo = popolazione[i][0]
+                individuo_str = Albero.albero_to_string(individuo)
+                popolazione[i][0] = individuo_str  # Replace with string representation
+                first = False
+
+        for generation in range(generations):
+            print(f"--- Generazione {generation + 1}/{generations} ---")
+
+            child_list = []  # Lista per raccogliere tutti i figli generati in questa generazione
+
+            while len(child_list) < num_offspring:
+                # Selection: Select parents based on fitness
+                selected_parents = metodo(popolazione, is_matrix, num_to_select=2)
+
+                # Crossover: Produce offspring by combining parents
+                child1_str, child2_str = crossover_string(selected_parents[0][0], selected_parents[1][0])
+
+                # Mutation: Apply mutation to offspring
+                child1_str = mutate_string(child1_str)
+                child2_str = mutate_string(child2_str)
+
+                # Evaluate fitness of the offspring
+                fit_child1 = compute_fitness_string(child1_str, ltn_dict, variabili)
+                fit_child2 = compute_fitness_string(child2_str, ltn_dict, variabili)
+
+                # Add offspring to the child list
+                child_list.append((child1_str, fit_child1))
+                if len(child_list) < num_offspring:
+                    child_list.append((child2_str, fit_child2))
+
+            # Update population (elitism strategy, keeping the best individuals)
+            population_with_new_offspring = sorted(popolazione + child_list, key=lambda x: x[1], reverse=True)
+            popolazione = population_with_new_offspring[:population_size]  # Keep only the best individuals
+
+            # Print current best individual in the population
+            best_individual = popolazione[0]
+            print(f"Best individual in generation {generation + 1}: {best_individual[0]} with fitness: {best_individual[1]}")
+
+    return popolazione
+
+'''
+# Main Genetic Algorithm Loop with string-based individuals
 def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori, metodo, is_matrix, population_size, first=True):
     """
     Perform the genetic algorithm using formula strings instead of tree structures.
@@ -277,3 +363,5 @@ def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori
             print(f"Best individual in generation {generation + 1}: {best_individual[0]} with fitness: {best_individual[1]}")
 
     return popolazione
+
+    '''
