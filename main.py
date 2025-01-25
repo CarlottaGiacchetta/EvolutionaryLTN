@@ -10,6 +10,8 @@ from evo_funct import *
 population_size = 100
 generations = 100
 max_depth = 5
+is_matrix = True
+metodo = fitness_proportionate_selection
 
 # Costanti
 costanti = {
@@ -73,12 +75,14 @@ quantificatori_2 = {
 }
 PROVA = list(quantificatori_2.keys())
 
-popolazione = np.array([
-    [
-        [Albero(VARIABLES=VARIABLES, OPERATORS=OPERATORS, QUANTIFIERS=PROVA, PREDICATES=PREDICATES), 0]
-        for _ in range(matrix_size)
-    ] for _ in range(matrix_size)
-], dtype=object)
+popolazione = popolazione_init(population_size=population_size, 
+                               is_matrix=is_matrix, 
+                               PREDICATES=PREDICATES, 
+                               QUANTIFIERS=PROVA, 
+                               OPERATORS=OPERATORS, 
+                               VARIABLES=VARIABLES, 
+                               ltn_dict={**predicati, **quantificatori, **operatori}, 
+                               variabili=variabili)
 
 # Calcoliamo la soddisfazione di base (senza formule evolutive)
 baseline_sat = measure_kb_sat(kb_rules, kb_facts, variabili, costanti)
@@ -94,7 +98,9 @@ popolazione_finale = evolutionary_run(
     costanti=costanti,
     kb_rules=kb_rules,
     kb_facts=kb_facts,
-    baseline_sat=baseline_sat
+    baseline_sat=baseline_sat,
+    is_matrix=is_matrix,
+    metodo=metodo
 )
 
 # Ordiniamo la popolazione in base alla fitness

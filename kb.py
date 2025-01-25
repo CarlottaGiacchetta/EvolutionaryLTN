@@ -55,6 +55,7 @@ def create_kb(predicati, quantificatori, operatori, costanti):
     facts_mapping = {
         "Marcus": ["Swallow"],    # "Marcus è una rondine"
         "Tweety": ["Penguin"]     # "Tweety è un pinguino"
+        
     }
 
     kb_facts = []

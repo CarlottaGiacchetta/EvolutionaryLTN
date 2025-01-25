@@ -480,7 +480,7 @@ def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori
 
 
 
-def evolutionary_run(popolazione, generations, ltn_dict, variabili, predicati, costanti, kb_rules, kb_facts, baseline_sat):
+def evolutionary_run(popolazione, generations, ltn_dict, variabili, predicati, costanti, kb_rules, kb_facts, baseline_sat, is_matrix, metodo):
     patience = 30
     tolerance = 1e-4
 
@@ -502,16 +502,10 @@ def evolutionary_run(popolazione, generations, ltn_dict, variabili, predicati, c
                 #print(i,j,parent1, fitness_parent1)
 
                 vicini = get_neighbors(popolazione, i, j)
-                fitness_values = np.array([v[3] for v in vicini])
-                fitness_sum = fitness_values.sum()
-                if fitness_sum > 0:
-                    probabilities = fitness_values / fitness_sum
-                else:
-                    probabilities = np.ones_like(fitness_values) / len(fitness_values)
-
-                sel_idx = np.random.choice(len(vicini), p=probabilities)
-                _, _, parent2_tree, parent2_fitness = vicini[sel_idx]
-
+                vicini.sort(key=lambda x: x[3], reverse=True)
+                parents = metodo(vicini, is_matrix=is_matrix, num_to_select=1)
+                parents = [individual[2] for individual in parents]
+                parent2_tree = parents[0]
                 # CROSSOVER
                 child1, child2 = crossover(parent1, parent2_tree)
                 # MUTATION
