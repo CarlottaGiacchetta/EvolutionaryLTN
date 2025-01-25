@@ -2,12 +2,9 @@ import ltn
 import torch
 import ltn.fuzzy_ops as fuzzy_ops
 import numpy as np
-from tree import *
+from structure import *
 from utils import *
-from parser import *
 from kb import *
-from evo_funct import *
-
 
 
 # Costanti

@@ -1,367 +1,215 @@
-from kb import * 
-from structure import *
-import numpy as np
+import torch.nn as nn
+import torch
+from kb import kb_loss
+from tree import Nodo, Albero
+from parser import *
 
 #################################################################
-# COMPUTE INITIAL POPULATION
+# get_all_nodes e replace_node_in_tree
 #################################################################
 
-def popolazione_init(population_size, is_matrix, PREDICATES, QUANTIFIERS, OPERATORS, VARIABLES, ltn_dict, variabili):
-    if is_matrix:
-        matrix_size = int(np.sqrt(population_size))
-        popolazione = compute_fitness(np.array([
-            [
-                [Albero(VARIABLES=VARIABLES, OPERATORS=OPERATORS, QUANTIFIERS=QUANTIFIERS, PREDICATES=PREDICATES), 0] # individuo e fitness --> massimizzare
-                for _ in range(matrix_size)
-            ] for _ in range(matrix_size)
-        ]),
-            ltn_dict=ltn_dict,
-            variabili=variabili,
-            is_matrix=is_matrix)
-    else:
-        # Genera la popolazione come lista di liste con individui inizializzati e fitness iniziale a 0
+def get_all_nodes(nodo):
+    nodes = [nodo]
+    for f in nodo.figli:
+        nodes.extend(get_all_nodes(f))
+    return nodes
 
-        popolazione = [
-        [Albero(VARIABLES=VARIABLES, OPERATORS=OPERATORS, QUANTIFIERS=QUANTIFIERS, PREDICATES=PREDICATES), 0]
-        for _ in range(population_size)]
-        popolazione = compute_fitness(
-        popolazione,
-        ltn_dict=ltn_dict,
-        variabili=variabili,
-        is_matrix=is_matrix
+def replace_node_in_tree(tree: Nodo, old_node: Nodo, new_subtree: Nodo):
+    """
+    Se trova old_node in `tree` (per reference), lo sostituisce con new_subtree (deepcopy).
+    Restituisce il nodo sostituito (nuovo) oppure None se non trovato.
+    """
+    if tree is old_node:
+        tree.tipo_nodo = new_subtree.tipo_nodo
+        tree.valore = new_subtree.valore
+        tree.figli = [c.copia() for c in new_subtree.figli]
+        return tree
+
+    for i, child in enumerate(tree.figli):
+        if child is old_node:
+            inserted = new_subtree.copia()
+            tree.figli[i] = inserted
+            return inserted
+        else:
+            replaced = replace_node_in_tree(child, old_node, new_subtree)
+            if replaced is not None:
+                return replaced
+    return None
+
+def find_path(root, target):
+    if root is target:
+        return [root]
+    for child in root.figli:
+        subpath = find_path(child, target)
+        if subpath:
+            return [root] + subpath
+    return []
+
+def get_scope_vars(root, target):
+    path = find_path(root, target)
+    if not path:
+        return []
+    scope_vars = []
+    for node in path:
+        if node.tipo_nodo == "QUANTIFICATORE":
+            scope_vars.append(node.figli[0].valore)
+    return scope_vars
+
+def partial_train(predicati, kb_rules, kb_facts, variabili, costanti, steps=50, lr=0.001):
+
+    parameters = []
+    for pred in predicati.values():
+        parameters += list(pred.model.parameters())
+
+    opt = torch.optim.Adam(parameters, lr=lr)
+    for _ in range(steps):
+        opt.zero_grad()
+        # Calcolo la loss come (1 - kb_loss), facendo .mean() per sicurezza
+        base_loss = kb_loss(kb_rules, kb_facts, variabili, costanti)  # kb_loss -> scalar
+        loss = (1 - base_loss).mean()  # .mean() riduce eventuali dimensioni residue
+        loss.backward()
+        opt.step()
+
+
+# Piccolo mlp per un predicato
+def make_unary_predicate(in_features=2, hidden1=8, hidden2=4):
+    return nn.Sequential(
+        nn.Linear(in_features, hidden1),
+        nn.ReLU(),
+        nn.Linear(hidden1, hidden2),
+        nn.ReLU(),
+        nn.Linear(hidden2, 1),
+        nn.Sigmoid()  # output in [0,1]
     )
-    return popolazione
 
 
-#################################################################
-# FITNESS
-#################################################################
+def get_neighbors(popolazione, i, j):
+    neighbors = []
+    # elenco delle possibili direzioni
+    directions = [(-1, -1), (-1, 0), (-1, 1),
+                  (0, -1),           (0, 1),
+                  (1, -1),  (1, 0),  (1, 1)]
 
-def compute_fitness(popolazione, ltn_dict, variabili, is_matrix):
-    if is_matrix:
-        # Calcola la fitness per ogni individuo
-        for i in range(popolazione.shape[0]):
-            for j in range(popolazione.shape[1]):
-                individuo = popolazione[i, j][0]  
-                predicati = [nodo for nodo in get_all_nodes(individuo.radice) if nodo.tipo_nodo == "PREDICATO"]
-                formula = individuo.to_ltn_formula(ltn_dict, variabili)
-                fitness = formula.value.item()
-            
-                # Penalizza se ci sono duplicati
-                if len(predicati) != len(set(predicati)):
-                    fitness *= 0.6
-                popolazione[i, j][1] = fitness 
-               
-    else:
-        for i in range(len(popolazione)):
-            individuo = popolazione[i][0]  # Albero
-            predicati = [nodo for nodo in get_all_nodes(individuo.radice) if nodo.tipo_nodo == "PREDICATO"]
-            formula = individuo.to_ltn_formula(ltn_dict, variabili)
-            fitness = formula.value.item()
-            
-            if len(predicati) != len(set(predicati)):
-                fitness *= 0.6
-            popolazione[i][1] = fitness  # Aggiorna fitness
-    return popolazione
+    for di, dj in directions:
+        x = i + di
+        y = j + dj
+        # verifica che x,y siano entro i limiti di popolazione
+        if 0 <= x < popolazione.shape[0] and 0 <= y < popolazione.shape[1]:
+            # Salvo TUTTO ciò che mi serve: (i_vicino, j_vicino, albero, fitness)
+            neighbors.append((x, y, popolazione[x, y][0], popolazione[x, y][1]))
+    return neighbors
 
 
-def compute_fitness_singolo(individuo, ltn_dict, variabili):
-    predicati = [nodo for nodo in get_all_nodes(individuo.radice) if nodo.tipo_nodo == "PREDICATO"]
-    formula = individuo.to_ltn_formula(ltn_dict, variabili)
+def measure_kb_sat(kb_rules, kb_facts, variabili, costanti):
+    total = 0.0
+    count = 0
+    for rule in kb_rules:
+        for var_name in variabili:
+            val = rule(variabili[var_name]).value
+            total += val.mean().item()
+            count += 1
+    #for c_name in costanti:
+    #    for fact in kb_facts:
+    #        val = fact(costanti[c_name]).value
+    #        total += val.mean().item()
+    #        count += 1
+    return total / max(count, 1)
+
+def make_new_rule(albero, ltn_dict, variabili):
+    """
+    Ritorna una funzione regola: data una x, ricostruisce la formula dall'albero
+    e la valuta, restituendo un LTNObject fresco ogni volta.
+    """
+    def rule_function(x):
+        # Ricostruisce la formula dal tuo albero
+        # in questo modo ogni volta che 'rule_function' è chiamata,
+        # si rifà il forward pass e crea un nuovo grafo PyTorch.
+        ltn_formula = albero.to_ltn_formula(ltn_dict, variabili)
+        return ltn_formula  # LTNObject "nuovo"
+    return rule_function
+
+
+def print_kb_status(kb_rules, kb_facts, variabili, costanti):
+    print("\n--- Stato della Knowledge Base ---")
+    print("\n**Regole:**")
+    for i, rule in enumerate(kb_rules, 1):
+        for var_name in variabili:
+            val = rule(variabili[var_name]).value
+            print(f"Regola {i}, Variabile '{var_name}': {val.item():.4f}, {rule}")
+
+
+
+def analizza_predicati(nodo: Nodo):
+    """Ritorna (num_predicati, dict{pred_name:count})."""
+    from collections import defaultdict
+    dict_count = defaultdict(int)
+
+    def dfs(n):
+        if n.tipo_nodo == "PREDICATO":
+            pred_name, _ = parse_predicato(n.valore)
+            dict_count[pred_name] += 1
+        for c in n.figli:
+            dfs(c)
+
+    dfs(nodo)
+    num_pred = sum(dict_count.values())
+    return num_pred, dict_count
+
+def is_tautology(nodo: Nodo):
+    """
+    Check basic tautologies, such as:
+    - pred(x) OR NOT pred(x)
+    - pred(x) => pred(x)
+    Returns True if a basic tautology is detected, else False.
+    """
+    # Caso base: se il nodo è un quantificatore, controlla il corpo
+    if nodo.tipo_nodo == "QUANTIFICATORE":
+        # Controlla se il corpo è una tautologia
+        return is_tautology(nodo.figli[1])
     
-    fitness = formula.value.item()
-    # Penalizza se ci sono duplicati
-    if len(predicati) != len(set(predicati)):
-        fitness *= 0.6
-    if individuo.profondita > 6:
-        fitness *= 0.9
-    return fitness 
-
-# Compute the fitness for a string-based logical formula
-def compute_fitness_string(formula_str, ltn_dict, variabili):
-    """
-    Compute the fitness of a logical formula string.
-    """
-    try:
-        formula = Nodo("PREDICATO", formula_str)  # Dummy placeholder
-        fitness = compute_fitness_singolo(formula, ltn_dict, variabili)
-        return fitness
-    except:
-        print('except')
-        return 0.1
-
-
-
-#################################################################
-# SELECTION METHODS
-#################################################################
-
-def fitness_proportionate_selection(population, is_matrix, num_to_select=2):
-    fitness_values = [individual[-1] for individual in population]
-    total_fitness = sum(fitness_values)
-    probabilities = [fitness / total_fitness for fitness in fitness_values]
-
-    # Seleziona individui in base alle probabilità
-    selected_individuals = random.choices(population, weights=probabilities, k=num_to_select)
-    return selected_individuals
-
-    
-def fitness_proportionate_selection_modern(population, is_matrix, num_to_select=2, x=0.32):
-    """
-    Modern GP selection with "over-selection":
-    - Divide the population into two groups by fitness: top x% and the rest.
-    - 80% of selection operations choose from the top x%, 20% from the rest.
-
-    Args:
-        population (list): Population where each individual is [object, fitness].
-        num_to_select (int): Number of individuals to select.
-        x (float): Proportion of the population in the top group (default 32%).
-
-    Returns:
-        list: Selected individuals from the population.
-    """
-    sorted_population = sorted(population, key=lambda ind: ind[-1], reverse=True)
+    # Se il nodo è un operatore, verifica i pattern di tautologia
+    if nodo.tipo_nodo == "OPERATORE":
+        op = nodo.valore.upper()
         
-
-    top_group_size = max(1, int(len(sorted_population) * x))
-    top_group = sorted_population[:top_group_size]
-    bottom_group = sorted_population[top_group_size:]
-
-    selected_individuals = []
-    for _ in range(num_to_select):
-        if random.random() < 0.8 and random.random() > 0.1:  # 80% probabilità di scegliere dal top group
-            selected = random.choice(top_group)
-        elif random.random() > 0.8:  # 20% probabilità di scegliere dal bottom group
-            selected = random.choice(bottom_group)
-        else: 
-            selected = random.choice(sorted_population)
-        selected_individuals.append(selected)
-
-    return selected_individuals
-
-
-#################################################################
-# EVOLUTIONARY RUN
-#################################################################
-
-def evolutionary_run_GP(popolazione, generations, ltn_dict, variabili, operatori, metodo, is_matrix, num_offspring):
-    if is_matrix:
-        for generation in range(generations):
-            #print(f"\n--- Generazione {generation + 1}/{generations} ---")
-            for i in range(popolazione.shape[0]):
-                for j in range(popolazione.shape[1]):
-                    vicini = get_neighbors(popolazione, i, j)
-                    vicini.sort(key=lambda x: x[3], reverse=True)
-                    parents = metodo(vicini, is_matrix=is_matrix, num_to_select=1)
-                    parents = [individual[2] for individual in parents]
-                    child1, child2 = crossover(parents[0], popolazione[i,j][0], prob=0.8)
-                    child1 = mutate(child1, prob=0.2)
-                    child2 = mutate(child2, prob=0.4)
-                    fit_child1 = compute_fitness_singolo(child1, ltn_dict, variabili)
-                    fit_child2 = compute_fitness_singolo(child2, ltn_dict, variabili)
-                    if fit_child1 > fit_child2:
-                        popolazione[i,j][0] = child1
-                        popolazione[i,j][1] = fit_child1
-                    else:
-                        popolazione[i,j][0] = child2
-                        popolazione[i,j][1] = fit_child2
-
-                    
-    else:
-        for generation in range(generations):
-            parent_list = []
-            child_list = []
-            #print(f"\n--- Generazione {generation + 1}/{generations} ---")
-            for _ in range(num_offspring):
-                parents = metodo(popolazione, is_matrix=is_matrix)
-                parents = [individual[0] for individual in parents]
-                child1, child2 = crossover(parents[0], parents[1], prob=0.8)
-                child1 = mutate(child1, prob=0.2)
-                child2 = mutate(child2, prob=0.2)
-                fit_child1 = compute_fitness_singolo(child1, ltn_dict, variabili)
-                fit_child2 = compute_fitness_singolo(child2, ltn_dict, variabili)
-
-                parent_list.append(parents[0])
-                child_list.append([child1, fit_child1])
-                child_list.append([child2, fit_child2])
-
-            eliminati = 0
-            # Rimuovi i genitori dalla popolazione
-            for parent in parent_list:
-                for i, individuo in enumerate(popolazione):
-                    if parent == individuo[0]:  # Confronta le formule logiche
-                        del popolazione[i]
-                        eliminati +=1
-                        break
-            child_list.sort(key=lambda x: x[1], reverse=True)
-            child_list_new = child_list[:num_offspring]
-            random.shuffle(child_list_new)
-            for i in range(eliminati):
-                popolazione.append(child_list_new[i])
-
-    return popolazione
-
-
-# Main Genetic Algorithm Loop with string-based individuals
-def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori, metodo, is_matrix,population_size, num_offspring, first=True,):
-    """
-    Perform the genetic algorithm using formula strings instead of tree structures.
-    """
-    print(first)
-    
-    if is_matrix:
-        if first:
-            # Convert individuals to string representation for GA operations
-            for i in range(popolazione.shape[0]):
-                for j in range(popolazione.shape[1]):
-                    individuo = popolazione[i][j][0]
-                    individuo_str = Albero.albero_to_string(individuo)
-                    popolazione[i][j][0] = individuo_str  # Replace with string representation
-                    first = False
-
-        for generation in range(generations):
-            for i in range(popolazione.shape[0]):
-                for j in range(popolazione.shape[1]):
-                    vicini = get_neighbors(popolazione, i, j)
-                    vicini.sort(key=lambda x: x[3], reverse=True)
-                    parents = metodo(vicini, is_matrix=is_matrix, num_to_select=1)
-                    parents = [individual[2] for individual in parents]
-                    child_list = []
-
-                    while len(child_list) < num_offspring:
-                        child1_str, child2_str = crossover_string(parents[0], popolazione[i, j][0])
-                        child1_str = mutate_string(child1_str)
-                        child2_str = mutate_string(child2_str)
-                        fit_child1 = compute_fitness_string(child1_str, ltn_dict, variabili)
-                        fit_child2 = compute_fitness_string(child2_str, ltn_dict, variabili)
-
-                        child_list.append((child1_str, fit_child1))
-                        if len(child_list) < num_offspring:
-                            child_list.append((child2_str, fit_child2))
-
-                    best_child = max(child_list, key=lambda x: x[1])
-                    popolazione[i, j][0] = best_child[0]
-                    popolazione[i, j][1] = best_child[1]
-
-    else:
-        if first:
-            # Convert individuals to string representation for GA operations
-            for i in range(len(popolazione)):
-                individuo = popolazione[i][0]
-                individuo_str = Albero.albero_to_string(individuo)
-                popolazione[i][0] = individuo_str  # Replace with string representation
-                first = False
-
-        for generation in range(generations):
-            print(f"--- Generazione {generation + 1}/{generations} ---")
-
-            child_list = []  # Lista per raccogliere tutti i figli generati in questa generazione
-
-            while len(child_list) < num_offspring:
-                # Selection: Select parents based on fitness
-                selected_parents = metodo(popolazione, is_matrix, num_to_select=2)
-
-                # Crossover: Produce offspring by combining parents
-                child1_str, child2_str = crossover_string(selected_parents[0][0], selected_parents[1][0])
-
-                # Mutation: Apply mutation to offspring
-                child1_str = mutate_string(child1_str)
-                child2_str = mutate_string(child2_str)
-
-                # Evaluate fitness of the offspring
-                fit_child1 = compute_fitness_string(child1_str, ltn_dict, variabili)
-                fit_child2 = compute_fitness_string(child2_str, ltn_dict, variabili)
-
-                # Add offspring to the child list
-                child_list.append((child1_str, fit_child1))
-                if len(child_list) < num_offspring:
-                    child_list.append((child2_str, fit_child2))
-
-            # Update population (elitism strategy, keeping the best individuals)
-            population_with_new_offspring = sorted(popolazione + child_list, key=lambda x: x[1], reverse=True)
-            popolazione = population_with_new_offspring[:population_size]  # Keep only the best individuals
-
-            # Print current best individual in the population
-            best_individual = popolazione[0]
-            print(f"Best individual in generation {generation + 1}: {best_individual[0]} with fitness: {best_individual[1]}")
-
-    return popolazione
-
-'''
-# Main Genetic Algorithm Loop with string-based individuals
-def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori, metodo, is_matrix, population_size, first=True):
-    """
-    Perform the genetic algorithm using formula strings instead of tree structures.
-    """
-    print(first)
-    
-    if is_matrix:
-        if first:
-            # Convert individuals to string representation for GA operations
-            for i in range(popolazione.shape[0]):
-                for j in range(popolazione.shape[1]):
-                    individuo = popolazione[i][j][0]
-                    individuo_str = Albero.albero_to_string(individuo)
-                    popolazione[i][j][0] = individuo_str  # Replace with string representation
-                    first=False
-
-        for generation in range(generations):
-            for i in range(popolazione.shape[0]):
-                for j in range(popolazione.shape[1]):
-                    vicini = get_neighbors(popolazione, i, j)
-                    vicini.sort(key=lambda x: x[3], reverse=True)
-                    parents = metodo(vicini, is_matrix=is_matrix, num_to_select=1)
-                    parents = [individual[2] for individual in parents]
-                    child1_str, child2_str = crossover_string(parents[0], popolazione[i,j][0])
-                    child1_str = mutate_string(child1_str)
-                    child2_str = mutate_string(child2_str)
-                    # Evaluate fitness of the offspring
-                    fit_child1 = compute_fitness_string(child1_str, ltn_dict, variabili)
-                    fit_child2 = compute_fitness_string(child2_str, ltn_dict, variabili)
-                    if fit_child1 > fit_child2:
-                        popolazione[i,j][0] = child1_str
-                        popolazione[i,j][1] = fit_child1
-                    else:
-                        popolazione[i,j][0] = child2_str
-                        popolazione[i,j][1] = fit_child2
-    
-    else:
-        if first:
-            # Convert individuals to string representation for GA operations
-            for i in range(len(popolazione)):
-                individuo = popolazione[i][0]
-                individuo_str = Albero.albero_to_string(individuo)
-                popolazione[i][0] = individuo_str  # Replace with string representation
-                first=False
-
-        for generation in range(generations):
-            print(f"--- Generazione {generation + 1}/{generations} ---")
+        # Tautologia: Pred(x) OR NOT Pred(x)
+        if op == "OR":
+            if len(nodo.figli) != 2:
+                return False
+            left, right = nodo.figli
+            if (left.tipo_nodo == "PREDICATO" and
+                right.tipo_nodo == "OPERATORE" and right.valore.upper() == "NOT" and
+                len(right.figli) == 1 and right.figli[0].tipo_nodo == "PREDICATO"):
+                
+                pred_left = left.valore.split('(')[0].strip()
+                pred_right = right.figli[0].valore.split('(')[0].strip()
+                
+                if pred_left == pred_right:
+                    return True
             
-            # Selection: Select parents based on fitness
-            selected_parents = metodo(popolazione, is_matrix, num_to_select=2)
-
-            # Crossover: Produce offspring by combining parents
-            child1_str, child2_str = crossover_string(selected_parents[0][0], selected_parents[1][0])
-
-            # Mutation: Apply mutation to offspring
-            child1_str = mutate_string(child1_str)
-            child2_str = mutate_string(child2_str)
-
-            # Evaluate fitness of the offspring
-            fit_child1 = compute_fitness_string(child1_str, ltn_dict, variabili)
-            fit_child2 = compute_fitness_string(child2_str, ltn_dict, variabili)
-
-            # Select the best offspring to replace old population
-            new_individuals = [(child1_str, fit_child1), (child2_str, fit_child2)]
-
-            # Update population (elitism strategy, keeping the best individuals)
-            population_with_new_offspring = sorted(popolazione + new_individuals, key=lambda x: x[1], reverse=True)
-            popolazione = population_with_new_offspring[:population_size]  # Keep only the best individuals
-
-            # Print current best individual in the population
-            best_individual = popolazione[0]
-            print(f"Best individual in generation {generation + 1}: {best_individual[0]} with fitness: {best_individual[1]}")
-
-    return popolazione
-
-    '''
+            # Controllo inverso: NOT Pred(x) OR Pred(x)
+            if (right.tipo_nodo == "PREDICATO" and
+                left.tipo_nodo == "OPERATORE" and left.valore.upper() == "NOT" and
+                len(left.figli) == 1 and left.figli[0].tipo_nodo == "PREDICATO"):
+                
+                pred_right = right.valore.split('(')[0].strip()
+                pred_left = left.figli[0].valore.split('(')[0].strip()
+                
+                if pred_left == pred_right:
+                    return True
+        
+        # Tautologia: Pred(x) => Pred(x)
+        elif op == "IMPLIES":
+            if len(nodo.figli) != 2:
+                return False
+            antecedent, consequent = nodo.figli
+            if (antecedent.tipo_nodo == "PREDICATO" and
+                consequent.tipo_nodo == "PREDICATO"):
+                
+                pred_antecedent = antecedent.valore.split('(')[0].strip()
+                pred_consequent = consequent.valore.split('(')[0].strip()
+                
+                if pred_antecedent == pred_consequent:
+                    return True
+    
+    # Altri casi non riconosciuti come tautologie
+    return False
