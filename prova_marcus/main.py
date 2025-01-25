@@ -7,8 +7,8 @@ from knowledge_base import *
 from utils import *
 from evo_funct import *
 
-population_size = 30
-generations = 1000
+population_size = 100
+generations = 100
 max_depth = 5
 
 # Costanti
@@ -92,7 +92,6 @@ popolazione_finale = evolutionary_run(
     variabili=variabili,
     predicati=predicati,
     costanti=costanti,
-    ottimizzatore=optimizer,
     kb_rules=kb_rules,
     kb_facts=kb_facts,
     baseline_sat=baseline_sat
