@@ -321,7 +321,7 @@ def mutate_string(formula_str):
     """
     words = formula_str.split()
     mutation_point = random.randint(0, len(words) - 1)
-    mutated_word = random.choice(["Cat", "Dog", "HasWhiskers", "AND", "OR", "NOT", "IMPLIES"])
+    mutated_word = random.choice(["Fly", "Animal", "Bird", "Penguin", "Swallow", "AND", "OR", "NOT", "IMPLIES"])
     
     words[mutation_point] = mutated_word
     return " ".join(words)

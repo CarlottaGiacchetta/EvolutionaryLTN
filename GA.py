@@ -12,7 +12,7 @@ from evo_funct import *
 
 # Define the parameters for the Genetic Algorithm
 population_size = 9  # Set the population size
-generations = 1     # Set the number of generations
+generations = 10     # Set the number of generations
 num_offspring = 5     # Set the number of offspring per generation
 is_matrix = True
 
