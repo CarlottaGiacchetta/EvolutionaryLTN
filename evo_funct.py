@@ -398,7 +398,6 @@ def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori
     """
     Perform the genetic algorithm using formula strings instead of tree structures.
     """
-    print(first)
     
     if is_matrix:
         if first:
@@ -469,7 +468,7 @@ def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori
                     child_list.append((child2_str, fit_child2))
 
             # Update population (elitism strategy, keeping the best individuals)
-            population_with_new_offspring = sorted(popolazione + child_list, key=lambda x: x[1], reverse=True)
+            population_with_new_offspring = sorted(child_list, key=lambda x: x[1], reverse=True)
             popolazione = population_with_new_offspring[:population_size]  # Keep only the best individuals
 
             # Print current best individual in the population

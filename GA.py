@@ -11,10 +11,10 @@ from evo_funct import *
 
 
 # Define the parameters for the Genetic Algorithm
-population_size = 9  # Set the population size
+population_size = 100  # Set the population size
 generations = 10     # Set the number of generations
-num_offspring = 5     # Set the number of offspring per generation
-is_matrix = True
+num_offspring = 100     # Set the number of offspring per generation
+is_matrix = False
 
 # Define the selection method (you can choose from your available methods)
 metodo = fitness_proportionate_selection  # Use fitness_proportionate_selection for selection
