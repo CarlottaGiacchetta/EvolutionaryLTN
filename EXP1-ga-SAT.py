@@ -17,7 +17,7 @@ num_offspring = 100     # Set the number of offspring per generation
 is_matrix = False
 
 # Define the selection method (you can choose from your available methods)
-metodo = fitness_proportionate_selection  # Use fitness_proportionate_selection for selection
+metodo = fitness_proportionate_selection_modern  # Use fitness_proportionate_selection for selection
 
 
 # Costanti
