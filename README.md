@@ -57,33 +57,4 @@ Utility functions for processing logical trees and optimization:
 
 ---
 
-## How It Works
-
-### 1. **Initial Population**
-- The initial population is created as a list (or matrix) of random logical trees.
-- Each tree represents a logical formula with:
-  - **Quantifiers**: `FORALL`, `EXISTS`.
-  - **Operators**: `AND`, `OR`, `NOT`, `IMPLIES`.
-  - **Predicates**: e.g., `Dog(x)`, `Bird(x)`.
-
-### 2. **Fitness Calculation**
-- The fitness of each formula is calculated based on:
-  - **Logical Consistency**: How well the formula aligns with the KB's rules and facts.
-  - **Penalties**: Deductions for complexity, tautologies, or predicate repetition.
-
-### 3. **Crossover and Mutation**
-- **Crossover**: Combines two logical trees by swapping substructures to generate new individuals.
-- **Mutation**: Randomly modifies nodes (e.g., changing predicates, operators, or adding new nodes).
-
-### 4. **Evolutionary Cycle**
-- The evolutionary cycle iteratively applies selection, crossover, mutation, and fitness calculation.
-- The best individuals are selected for the next generation.
-
-### 5. **Integration with KB**
-- Each generation is evaluated against the knowledge base.
-- High-fitness formulas can be added to the KB to improve overall logical consistency.
-
----
-
-
 
