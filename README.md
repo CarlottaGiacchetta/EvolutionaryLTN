@@ -56,7 +56,6 @@ Utility functions for processing logical trees and optimization:
 - **Operators and Predicates**: Creates unary predicates and manages logical operators.
 
 ---
----
 
 ## Installation
 
@@ -67,6 +66,18 @@ To run the framework:
    git clone https://github.com/CarlottaGiacchetta/EvolutionaryLTN.git
    cd EvolutionaryLTN
    ```
+---
+## Acknowledgments
 
+This project was developed as part of the **Bio-Inspired Artificial Intelligence** course at the **University of Trento**, taught by **Professor Giovanni Iacca**. 
+
+The work was carried out by:
+- **Marcus Vukojevic**
+- **Carlotta Giacchetta**
+- **Chiara Musso**
+
+We are grateful for the guidance and insights provided during the course, which greatly contributed to the completion of this work.
+
+---
 
 
