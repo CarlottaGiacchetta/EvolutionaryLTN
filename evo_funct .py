@@ -633,6 +633,7 @@ def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori
             for i in range(len(popolazione)):
                 individuo = popolazione[i][0]
                 individuo_str = Albero.albero_to_string(individuo)
+                popolazione[i][0] = individuo_str 
                 first = False
 
         for generation in range(generations):
@@ -642,7 +643,6 @@ def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori
 
             while len(child_list) < num_offspring:
                 selected_parents = metodo(popolazione, is_matrix, num_to_select=2)
-
                 child1_str, child2_str = crossover_string(selected_parents[0][0], selected_parents[1][0])
 
                 child1_str = mutate_string(child1_str)
