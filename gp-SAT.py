@@ -66,16 +66,6 @@ ltn_dict.update(quantificatori)
 ltn_dict.update(operatori)
 
 
-is_matrix = True
-population_size = 1000
-generations = 100
-max_depth = 20
-num_offspring = 20
-metodi = [fitness_proportionate_selection, fitness_proportionate_selection_modern]
-metodo = fitness_proportionate_selection
-
-
-
 run_matrixfitprop = {
         'run1': {'is_matrix': True,  'population_size': 16, 'generations': 20, 'num_offspring': 5,   'metodo': fitness_proportionate_selection},
         'run2': {'is_matrix': True,  'population_size': 16, 'generations': 50, 'num_offspring': 5,   'metodo': fitness_proportionate_selection},

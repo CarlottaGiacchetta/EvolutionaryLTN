@@ -9,22 +9,38 @@ from parser import *
 
 class Nodo:
     def __init__(self, tipo_nodo, valore=None, figli=None):
-        """
-        tipo_nodo: "OPERATORE", "QUANTIFICATORE", "PREDICATO", "VARIABILE"
-        valore: es. "AND", "FORALL", "Dog(x,y)", ...
-        figli: lista di nodi (vuota per i predicati e le variabili)
-        """
+        '''
+        Represents a node in a logical tree.
+
+        Parameters:
+        - tipo_nodo (str): Type of the node. Possible values:
+          - "OPERATORE" (e.g., "AND", "OR", "NOT")
+          - "QUANTIFICATORE" (e.g., "FORALL", "EXISTS")
+          - "PREDICATO" (e.g., "Dog(x, y)", "Parent(x)")
+          - "VARIABILE" (e.g., "x", "y")
+        - valore (str): The value associated with the node (e.g., "AND", "Dog(x)").
+        - figli (list): A list of child nodes (empty for predicates and variables).
+        '''
         self.tipo_nodo = tipo_nodo
         self.valore = valore
         self.figli = figli if (figli is not None) else []
 
     def copia(self):
+        '''
+        Creates a deep copy of the node and its children.
+
+        Returns:
+        - Nodo: A deep copy of the node.
+        '''
         return copy.deepcopy(self)
     
     def __repr__(self):
-        """
-        Stampa ricorsiva del nodo.
-        """
+        '''
+        Provides a recursive string representation of the node.
+
+        Returns:
+        - str: The textual representation of the node.
+        '''
         if self.tipo_nodo == "PREDICATO":
             # es: "Dog(x,y)"
             return f"{self.valore}"
@@ -32,16 +48,12 @@ class Nodo:
             # es: "x"
             return self.valore
         elif self.tipo_nodo == "OPERATORE":
-            # assumiamo operatore binario o 'NOT' unario
-            #print(self.figli)
-            #print(self.valore)
+    
             if self.valore == "NOT":
                 return f"(NOT {self.figli[0]})"
             else:
-                # es. (child0 AND child1)
                 return f"({self.figli[0]} {self.valore} {self.figli[1]})"
         elif self.tipo_nodo == "QUANTIFICATORE":
-            # (FORALL x: <body>)
             var_node = self.figli[0]   # nodo VARIABILE
             body = self.figli[1]       # sottoformula
             return f"({self.valore} {var_node.valore}: {body})"
@@ -49,9 +61,12 @@ class Nodo:
             return f"UNKNOWN({self.valore})"
 
     def valida_nodo(self):
-        """
-        Controlli base sul numero di figli e coerenza con tipo_nodo.
-        """
+        '''
+        Validates the node based on its type and the number of children.
+
+        Returns:
+        - bool: True if the node is valid, False otherwise.
+        '''
         if self.tipo_nodo == "OPERATORE":
             if self.valore == "NOT":
                 if len(self.figli) != 1:
@@ -63,7 +78,6 @@ class Nodo:
                     return False
 
         elif self.tipo_nodo == "QUANTIFICATORE":
-            # 2 figli: [nodo VARIABILE, sottoformula]
             if len(self.figli) != 2:
                 print("QUANTIFICATORE deve avere 2 figli (VARIABILE, body).")
                 return False
@@ -72,13 +86,11 @@ class Nodo:
                 return False
 
         elif self.tipo_nodo == "PREDICATO":
-            # In questa rappresentazione, i predicati non hanno nodi figli (gli argomenti sono nel 'valore' string)
             if len(self.figli) != 0:
                 print("PREDICATO deve avere 0 figli, trovato", len(self.figli))
                 return False
 
         elif self.tipo_nodo == "VARIABILE":
-            # Nessun figlio
             if len(self.figli) != 0:
                 print("VARIABILE deve avere 0 figli.")
                 return False
@@ -86,6 +98,15 @@ class Nodo:
         return True
     
     def __eq__(self, other):
+        '''
+        Checks equality between two nodes.
+
+        Parameters:
+        - other (Nodo): The other node to compare.
+
+        Returns:
+        - bool: True if the nodes are equivalent, False otherwise.
+        '''
         if not isinstance(other, Nodo):
             return False
         return (
@@ -95,6 +116,12 @@ class Nodo:
         )
 
     def __hash__(self):
+        '''
+        Generates a hash for the node, useful for usage in sets or dictionaries.
+
+        Returns:
+        - int: The hash of the node.
+        '''
         return hash((self.tipo_nodo, self.valore, tuple(self.figli)))
     
 
@@ -104,10 +131,19 @@ class Nodo:
 
 class Albero:
     def __init__(self, VARIABLES, OPERATORS, QUANTIFIERS, PREDICATES):
-        """
-        Esempio di costruttore semplice: 
+        '''
+        Constructs a random logical tree (Albero) using the provided variables, operators,
+        quantifiers, and predicates.
+
+        The tree structure follows the pattern:
         (QUANT var: (Pred(...var...) OP Pred(...var...)))
-        """
+
+        Parameters:
+        - VARIABLES (list): A list of variable names (e.g., ["x", "y"]).
+        - OPERATORS (list): A list of logical operators (e.g., ["AND", "OR", "IMPLIES"]).
+        - QUANTIFIERS (list): A list of quantifiers (e.g., ["FORALL", "EXISTS"]).
+        - PREDICATES (list): A list of predicate names (e.g., ["Dog", "Cat"]).
+        '''
         self.VARIABLES = VARIABLES
         self.OPERATORS = OPERATORS
         self.QUANTIFIERS = QUANTIFIERS
@@ -133,6 +169,12 @@ class Albero:
         self.profondita = self.calcola_profondita(self.radice)
 
     def copia(self):
+        '''
+        Creates a deep copy of the Albero object.
+
+        Returns:
+        - Albero: A new Albero object identical to the original.
+        '''
         nuovo = Albero.__new__(Albero)
         nuovo.VARIABLES = self.VARIABLES
         nuovo.OPERATORS = self.OPERATORS
@@ -145,11 +187,26 @@ class Albero:
         return nuovo
 
     def calcola_profondita(self, nodo):
+        '''
+        Recursively calculates the depth of the tree.
+
+        Parameters:
+        - nodo (Nodo): The root node of the tree or subtree.
+
+        Returns:
+        - int: The depth of the tree.
+        '''
         if not nodo.figli:
             return 1
         return 1 + max(self.calcola_profondita(c) for c in nodo.figli)
 
     def valida_albero(self):
+        '''
+        Validates the entire tree by checking the validity of each node.
+
+        Returns:
+        - bool: True if the tree is valid, False otherwise.
+        '''
         stack = [self.radice]
         albero_valido = True
         while stack:
@@ -161,25 +218,60 @@ class Albero:
         return albero_valido
     
     def __repr__(self):
+        '''
+        Provides a string representation of the logical tree.
+
+        Returns:
+        - str: A string representation of the tree.
+        '''
         return str(self.radice)
     
     def __eq__(self, other):
+        '''
+        Checks equality between two Albero objects based on their root nodes.
+
+        Parameters:
+        - other (Albero): The other tree to compare.
+
+        Returns:
+        - bool: True if the trees are equal, False otherwise.
+        '''
         if not isinstance(other, Albero):
             return False
         return self.radice == other.radice
 
     def __hash__(self):
-        # Hash basato sulla radice dell'albero
+        '''
+        Generates a hash value for the tree, based on its root node.
+
+        Returns:
+        - int: The hash of the tree.
+        '''
         return hash(self.radice)
 
     def to_ltn_formula(self, ltn_dict, scope_vars):
-        """
-        Converte l'albero in formula LTN, 
-        assumendo che scope_vars contenga le ltn.Variable pertinenti.
-        """
+        '''
+        Converts the logical tree into a Logic Tensor Network (LTN) formula.
+
+        Parameters:
+        - ltn_dict (dict): A dictionary of LTN predicates and operators.
+        - scope_vars (list): A list of LTN variables used in the formula.
+
+        Returns:
+        - LTN formula: The LTN-compatible representation of the tree.
+        '''
         return build_ltn_formula_node(self.radice, ltn_dict, scope_vars)
         
     def update_liveness(self, fitness):
+        '''
+        Updates the fitness of the tree and checks for stagnation.
+
+        If the fitness does not change for more than 5 consecutive updates,
+        the tree is re-initialized.
+
+        Parameters:
+        - fitness (float): The new fitness value for the tree.
+        '''
         if fitness == self.ultima_fitness:
             self.stagnazione += 1
             self.ultima_fitness = fitness
@@ -189,9 +281,15 @@ class Albero:
             self.__init__(self.VARIABLES, self.OPERATORS, self.QUANTIFIERS, self.PREDICATES)
     
     def albero_to_string(albero):
-        """
-        Convert an Albero object (logical tree) into a string representation.
-        """
+        '''
+        Converts an Albero object (logical tree) into its string representation.
+
+        Parameters:
+        - albero (Albero): The Albero object to convert.
+
+        Returns:
+        - str: The string representation of the tree.
+        '''
         return str(albero.radice)
 
 
@@ -200,10 +298,24 @@ class Albero:
 #################################################################
 
 def build_ltn_formula_node(nodo: Nodo, ltn_dict, scope_vars):
-    """
-    Dato un nodo (PREDICATO / OPERATORE / QUANTIFICATORE / VARIABILE), 
-    costruisce ricorsivamente la formula LTN corrispondente.
-    """
+    '''
+    Recursively builds an LTN (Logic Tensor Network) formula from a logical tree node.
+
+    The function traverses the tree structure represented by `Nodo` and constructs
+    the corresponding LTN formula based on the type of node (predicate, operator, quantifier, or variable).
+
+    Parameters:
+    - nodo (Nodo): The root node of the logical tree or subtree.
+    - ltn_dict (dict): A dictionary mapping predicates, operators, and quantifiers
+      to their corresponding LTN implementations.
+    - scope_vars (dict): A dictionary mapping variable names to their LTN.Variable objects.
+
+    Returns:
+    - LTN formula: The constructed LTN-compatible formula for the given tree.
+
+    Raises:
+    - ValueError: If a predicate, variable, or quantifier is undefined in the given dictionaries.
+    '''
     if nodo.tipo_nodo == "PREDICATO":
         pred_name, var_names = parse_predicato(nodo.valore)
         # Recupera l'oggetto LTN corrispondente

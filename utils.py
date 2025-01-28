@@ -9,16 +9,37 @@ from parser import *
 #################################################################
 
 def get_all_nodes(nodo):
+    '''
+    Recursively retrieves all nodes in a tree starting from the given root node.
+
+    Parameters:
+    - nodo (Nodo): The root node of the tree.
+
+    Returns:
+    - list: A list containing all nodes in the tree (including the root node).
+    '''
     nodes = [nodo]
     for f in nodo.figli:
         nodes.extend(get_all_nodes(f))
     return nodes
 
 def replace_node_in_tree(tree: Nodo, old_node: Nodo, new_subtree: Nodo):
-    """
-    Se trova old_node in `tree` (per reference), lo sostituisce con new_subtree (deepcopy).
-    Restituisce il nodo sostituito (nuovo) oppure None se non trovato.
-    """
+    '''
+    Replaces a specific node in the tree with a new subtree.
+
+    This function searches for the `old_node` in the given tree. If found, it replaces the node
+    with `new_subtree` (a deep copy of it) and returns the replaced node. If the node is not
+    found, it returns `None`.
+
+    Parameters:
+    - tree (Nodo): The root of the tree where the replacement will take place.
+    - old_node (Nodo): The node to be replaced (must match by reference, not by value).
+    - new_subtree (Nodo): The new subtree that will replace the old node.
+
+    Returns:
+    - Nodo: The newly inserted node if the replacement was successful, or `None` if the old node
+      was not found.
+    '''
     if tree is old_node:
         tree.tipo_nodo = new_subtree.tipo_nodo
         tree.valore = new_subtree.valore
@@ -37,6 +58,17 @@ def replace_node_in_tree(tree: Nodo, old_node: Nodo, new_subtree: Nodo):
     return None
 
 def find_path(root, target):
+    '''
+    Finds the path from the root node to a target node in a tree.
+
+    Parameters:
+    - root (Nodo): The root of the tree.
+    - target (Nodo): The target node to find.
+
+    Returns:
+    - list: A list of nodes representing the path from the root to the target.
+      If the target is not found, returns an empty list.
+    '''
     if root is target:
         return [root]
     for child in root.figli:
@@ -46,6 +78,18 @@ def find_path(root, target):
     return []
 
 def get_scope_vars(root, target):
+    '''
+    Retrieves the list of variables in the scope of a target node, 
+    determined by quantifiers in the path from the root to the target.
+
+    Parameters:
+    - root (Nodo): The root of the tree.
+    - target (Nodo): The target node for which the scope variables are retrieved.
+
+    Returns:
+    - list: A list of variable names (strings) introduced by quantifiers along the path.
+      Returns an empty list if the target is not found.
+    '''
     path = find_path(root, target)
     if not path:
         return []
@@ -56,6 +100,22 @@ def get_scope_vars(root, target):
     return scope_vars
 
 def partial_train(predicati, kb_rules, kb_facts, variabili, costanti, steps=50, lr=0.001):
+    '''
+    Performs a partial training of the predicates in the knowledge base (KB) 
+    to better align them with the rules and facts.
+
+    Parameters:
+    - predicati (dict): Dictionary of predicates, where each predicate has trainable parameters.
+    - kb_rules (list): List of rules in the KB.
+    - kb_facts (list): List of facts in the KB.
+    - variabili (dict): Dictionary of variables used in the KB.
+    - costanti (dict): Dictionary of constants used in the KB.
+    - steps (int): Number of optimization steps (default: 50).
+    - lr (float): Learning rate for the optimizer (default: 0.001).
+
+    Returns:
+    - None
+    '''
 
     parameters = []
     for pred in predicati.values():
@@ -73,6 +133,17 @@ def partial_train(predicati, kb_rules, kb_facts, variabili, costanti, steps=50, 
 
 # Piccolo mlp per un predicato
 def make_unary_predicate(in_features=2, hidden1=8, hidden2=4):
+    '''
+    Creates a simple neural network for modeling unary predicates.
+
+    Parameters:
+    - in_features (int): Number of input features (default: 2).
+    - hidden1 (int): Number of neurons in the first hidden layer (default: 8).
+    - hidden2 (int): Number of neurons in the second hidden layer (default: 4).
+
+    Returns:
+    - nn.Sequential: A PyTorch sequential model with ReLU activations and Sigmoid output.
+    '''
     return nn.Sequential(
         nn.Linear(in_features, hidden1),
         nn.ReLU(),
@@ -84,6 +155,17 @@ def make_unary_predicate(in_features=2, hidden1=8, hidden2=4):
 
 
 def get_neighbors(popolazione, i, j):
+    '''
+    Retrieves all neighbors of a cell (i, j) in a 2D population matrix.
+
+    Parameters:
+    - popolazione (numpy.ndarray): The population matrix.
+    - i (int): Row index of the target cell.
+    - j (int): Column index of the target cell.
+
+    Returns:
+    - list: A list of tuples (neighbor_i, neighbor_j, tree, fitness) for each neighbor.
+    '''
     neighbors = []
     # elenco delle possibili direzioni
     directions = [(-1, -1), (-1, 0), (-1, 1),
@@ -101,6 +183,18 @@ def get_neighbors(popolazione, i, j):
 
 
 def measure_kb_sat(kb_rules, kb_facts, variabili, costanti):
+    '''
+    Measures the satisfaction of a knowledge base (KB).
+
+    Parameters:
+    - kb_rules (list): List of rules in the KB.
+    - kb_facts (list): List of facts in the KB (currently unused).
+    - variabili (dict): Dictionary of variables used in the KB.
+    - costanti (dict): Dictionary of constants (currently unused).
+
+    Returns:
+    - float: The average satisfaction value across all rules and variables.
+    '''
     total = 0.0
     count = 0
     for rule in kb_rules:
@@ -108,28 +202,38 @@ def measure_kb_sat(kb_rules, kb_facts, variabili, costanti):
             val = rule(variabili[var_name]).value
             total += val.mean().item()
             count += 1
-    #for c_name in costanti:
-    #    for fact in kb_facts:
-    #        val = fact(costanti[c_name]).value
-    #        total += val.mean().item()
-    #        count += 1
+    
     return total / max(count, 1)
 
 def make_new_rule(albero, ltn_dict, variabili):
-    """
-    Ritorna una funzione regola: data una x, ricostruisce la formula dall'albero
-    e la valuta, restituendo un LTNObject fresco ogni volta.
-    """
+    '''
+    Creates a new rule function from a tree.
+
+    Parameters:
+    - albero (Albero): The logical tree representing the rule.
+    - ltn_dict (dict): Dictionary of LTN-compatible predicates, operators, and quantifiers.
+    - variabili (dict): Dictionary of variables.
+
+    Returns:
+    - function: A callable function representing the rule.
+    '''
     def rule_function(x):
-        # Ricostruisce la formula dal tuo albero
-        # in questo modo ogni volta che 'rule_function' è chiamata,
-        # si rifà il forward pass e crea un nuovo grafo PyTorch.
         ltn_formula = albero.to_ltn_formula(ltn_dict, variabili)
         return ltn_formula  # LTNObject "nuovo"
     return rule_function
 
 
 def print_kb_status(kb_rules, kb_facts, variabili, costanti):
+    '''
+    Prints the current status of the knowledge base, including satisfaction levels
+    for rules and facts.
+
+    Parameters:
+    - kb_rules (list): List of rules in the KB.
+    - kb_facts (list): List of facts in the KB.
+    - variabili (dict): Dictionary of variables.
+    - costanti (dict): Dictionary of constants.
+    '''
     print("\n--- Stato della Knowledge Base ---")
     print("\n**Regole:**")
     for i, rule in enumerate(kb_rules, 1):
@@ -140,7 +244,15 @@ def print_kb_status(kb_rules, kb_facts, variabili, costanti):
 
 
 def analizza_predicati(nodo: Nodo):
-    """Ritorna (num_predicati, dict{pred_name:count})."""
+    '''
+    Analyzes a tree to count the total number of predicates and their occurrences.
+
+    Parameters:
+    - nodo (Nodo): The root of the logical tree.
+
+    Returns:
+    - tuple: (total_predicates, dict{name: count}), where `name` is the predicate name.
+    '''
     from collections import defaultdict
     dict_count = defaultdict(int)
 
@@ -156,22 +268,27 @@ def analizza_predicati(nodo: Nodo):
     return num_pred, dict_count
 
 def is_tautology(nodo: Nodo):
-    """
-    Check basic tautologies, such as:
+    '''
+    Checks if a given tree represents a basic tautology.
+
+    Recognized patterns include:
     - pred(x) OR NOT pred(x)
     - pred(x) => pred(x)
-    Returns True if a basic tautology is detected, else False.
-    """
-    # Caso base: se il nodo è un quantificatore, controlla il corpo
+
+    Parameters:
+    - nodo (Nodo): The root of the logical tree.
+
+    Returns:
+    - bool: True if the tree represents a tautology, False otherwise.
+    '''
+    
     if nodo.tipo_nodo == "QUANTIFICATORE":
         # Controlla se il corpo è una tautologia
         return is_tautology(nodo.figli[1])
     
-    # Se il nodo è un operatore, verifica i pattern di tautologia
     if nodo.tipo_nodo == "OPERATORE":
         op = nodo.valore.upper()
         
-        # Tautologia: Pred(x) OR NOT Pred(x)
         if op == "OR":
             if len(nodo.figli) != 2:
                 return False
@@ -185,8 +302,7 @@ def is_tautology(nodo: Nodo):
                 
                 if pred_left == pred_right:
                     return True
-            
-            # Controllo inverso: NOT Pred(x) OR Pred(x)
+                
             if (right.tipo_nodo == "PREDICATO" and
                 left.tipo_nodo == "OPERATORE" and left.valore.upper() == "NOT" and
                 len(left.figli) == 1 and left.figli[0].tipo_nodo == "PREDICATO"):
@@ -196,8 +312,7 @@ def is_tautology(nodo: Nodo):
                 
                 if pred_left == pred_right:
                     return True
-        
-        # Tautologia: Pred(x) => Pred(x)
+                
         elif op == "IMPLIES":
             if len(nodo.figli) != 2:
                 return False
@@ -210,6 +325,5 @@ def is_tautology(nodo: Nodo):
                 
                 if pred_antecedent == pred_consequent:
                     return True
-    
-    # Altri casi non riconosciuti come tautologie
+                
     return False

@@ -11,6 +11,23 @@ from tree import Albero, Nodo
 #################################################################
 
 def popolazione_init(population_size, is_matrix, PREDICATES, QUANTIFIERS, OPERATORS, VARIABLES, ltn_dict, variabili):
+    '''
+    Initializes a population of individuals for the genetic algorithm.
+
+    Parameters:
+    population_size (int): The size of the population to generate.
+    is_matrix (bool): If True, the population is represented as a matrix; otherwise, as a list.
+    PREDICATES (list): The list of predicates used in the logical formulas.
+    QUANTIFIERS (list): The list of quantifiers used in the logical formulas.
+    OPERATORS (list): The list of operators used in the logical formulas.
+    VARIABLES (list): The list of variables used in the logical formulas.
+    ltn_dict (dict): A dictionary containing the Logic Tensor Network (LTN) predicates and their definitions.
+    variabili (list): The set of variables required for formula evaluation.
+
+    Returns:
+    popolazione (list or ndarray): The initialized population, where each individual is represented as 
+                                   a list or a 2D array element with the structure [Albero, fitness].
+    '''
     if is_matrix:
         matrix_size = int(np.sqrt(population_size))
         popolazione = compute_fitness(np.array([
@@ -44,6 +61,18 @@ def popolazione_init(population_size, is_matrix, PREDICATES, QUANTIFIERS, OPERAT
 #################################################################
 
 def compute_fitness(popolazione, ltn_dict, variabili, is_matrix):
+    '''
+    Computes the fitness for each individual in the population.
+
+    Parameters:
+    popolazione (list or ndarray): The population, where each individual is an "Albero" structure with a fitness value.
+    ltn_dict (dict): A dictionary containing the Logic Tensor Network (LTN) predicates and their definitions.
+    variabili (list): The set of variables required for formula evaluation.
+    is_matrix (bool): If True, the population is represented as a matrix; otherwise, as a list.
+
+    Returns:
+    popolazione (list or ndarray): The updated population with computed fitness values for each individual.
+    '''
     if is_matrix:
         # Calcola la fitness per ogni individuo
         for i in range(popolazione.shape[0]):
@@ -72,6 +101,17 @@ def compute_fitness(popolazione, ltn_dict, variabili, is_matrix):
 
 
 def compute_fitness_singolo(individuo, ltn_dict, variabili):
+    '''
+    Computes the fitness of a single "Albero" individual.
+
+    Parameters:
+    individuo (Albero): The logical tree structure for which fitness is computed.
+    ltn_dict (dict): A dictionary containing the Logic Tensor Network (LTN) predicates and their definitions.
+    variabili (list): The set of variables required for formula evaluation.
+
+    Returns:
+    float: The fitness value of the individual.
+    '''
     predicati = [nodo for nodo in get_all_nodes(individuo.radice) if nodo.tipo_nodo == "PREDICATO"]
     formula = individuo.to_ltn_formula(ltn_dict, variabili)
     
@@ -85,20 +125,22 @@ def compute_fitness_singolo(individuo, ltn_dict, variabili):
 
 # Compute the fitness for a string-based logical formula
 def compute_fitness_string(formula_str, ltn_dict, variabili):
-    """
-    Compute the fitness of a logical formula string.
-    """
+    '''
+    Computes the fitness of a logical formula represented as a string.
+
+    Parameters:
+    formula_str (str): The logical formula in string format.
+    ltn_dict (dict): A dictionary containing the Logic Tensor Network (LTN) predicates and their definitions.
+    variabili (list): The set of variables required for formula evaluation.
+
+    Returns:
+    float: The fitness value of the logical formula. Returns a default value (0.1) if the computation fails.
+    '''
     try:
-        #print('\n\n')
-        #print('formula str')
-        #print(formula_str)
         formula = Nodo("PREDICATO", formula_str)  # Dummy placeholder
-        #print('formula str')
-        #print(formula)
         fitness = compute_fitness_singolo(formula, ltn_dict, variabili)
         return fitness
     except:
-        #print('except')
         return 0.1
 
 def compute_fitness_retrain(individuo,
@@ -112,52 +154,60 @@ def compute_fitness_retrain(individuo,
                             salvo_formula,
                             lambda_complexity=0.01,
                             lambda_novelty=1.0):
-    """
-    Calcola la fitness di un individuo (formula):
-      - Delta SAT (esteso vs baseline)
-      - + novelty se formula non ancora vista
-      - penalità esponenziale di complessità
-      - penalità se la formula ha un solo predicato
-      - penalità se (euristicamente) è tautologia
-      - penalità se troppi duplicati di predicati
-    """
+    '''
+    Computes the fitness of an individual formula based on multiple criteria:
+    
+    1. **Delta SAT**: Measures the improvement in KB satisfaction (SAT) when the formula is added.
+    2. **Novelty**: Rewards the discovery of unique formulas not previously encountered.
+    3. **Complexity penalty**: Applies an exponential penalty for overly complex formulas.
+    4. **Single predicate penalty**: Penalizes formulas that contain only one predicate.
+    5. **Tautology penalty**: Penalizes formulas that are tautological.
+    6. **Repetition penalty**: Penalizes formulas with excessive duplication of predicates.
 
-    # Costruisce la regola
+    Parameters:
+    - individuo (Albero): The logical tree representing the formula.
+    - ltn_dict (dict): Dictionary of Logic Tensor Network (LTN) predicates and their definitions.
+    - variabili (list): Variables used in the formulas.
+    - predicati (list): List of predicates available in the KB.
+    - costanti (list): List of constants available in the KB.
+    - kb_rules (list): Existing rules in the KB.
+    - kb_facts (list): Existing facts in the KB.
+    - baseline_sat (float): The current SAT score of the KB before adding the formula.
+    - salvo_formula (set): Set of previously seen formulas for novelty detection.
+    - lambda_complexity (float): Weight for the complexity penalty. Default is 0.01.
+    - lambda_novelty (float): Weight for the novelty reward. Default is 1.0.
+
+    Returns:
+    - fitness (float): The computed fitness score of the formula.
+    '''
+
     new_rule = make_new_rule(individuo, ltn_dict, variabili)
     extended_rules = kb_rules + [new_rule]
 
-    # SAT
     extended_sat = measure_kb_sat(extended_rules, kb_facts, variabili, costanti)
     delta = extended_sat - baseline_sat
 
-    # novelty
     novelty = 1.0 if individuo not in set(salvo_formula) else 0.0
 
-    # penalità di complessità (esponenziale)
     nodi = get_all_nodes(individuo.radice)
     num_nodi = len(nodi)
     penalty_complex = lambda_complexity * (2 ** (0.1 * num_nodi))
 
-    # analizza predicati
     num_predicati_tot, dict_pred_count = analizza_predicati(individuo.radice)
 
-    # penalità single-pred
     penalty_single_pred = 0.0
     if num_predicati_tot <= 1:
         penalty_single_pred = 2.0
 
-    # penalità tautologia
     penalty_tauto = 0.0
     if is_tautology(individuo.radice):
         penalty_tauto = 3.0
 
-    # penalità ripetizioni
     penalty_repetition = 0.0
     for pred_name, cnt in dict_pred_count.items():
         if cnt > 1:
             penalty_repetition += (cnt - 1) * 0.5
 
-    # fitness
     fitness = delta + (lambda_novelty * novelty)
     fitness -= penalty_complex
     fitness -= penalty_single_pred
@@ -166,16 +216,96 @@ def compute_fitness_retrain(individuo,
 
     return fitness
 
+#################################################################
+# SELECTION METHODS
+#################################################################
+
+def fitness_proportionate_selection(population, is_matrix, num_to_select=2):
+    '''
+    Selects individuals from the population based on their fitness proportion.
+
+    Each individual's fitness determines their likelihood of being selected.
+    Higher fitness values increase the probability of selection.
+
+    Parameters:
+    - population (list): Population where each individual is a list or array containing [object, fitness].
+    - is_matrix (bool): Unused in this function but included for compatibility with other selection methods.
+    - num_to_select (int): Number of individuals to select. Default is 2.
+
+    Returns:
+    - selected_individuals (list): List of selected individuals from the population.
+    '''
+    fitness_values = [individual[-1] for individual in population]
+    total_fitness = sum(fitness_values)
+    probabilities = [fitness / total_fitness for fitness in fitness_values]
+
+    # Seleziona individui in base alle probabilità
+    selected_individuals = random.choices(population, weights=probabilities, k=num_to_select)
+    return selected_individuals
+
+    
+def fitness_proportionate_selection_modern(population, is_matrix, num_to_select=2, x=0.32):
+    '''
+    Modern selection method with "over-selection" for Genetic Programming (GP).
+
+    The population is divided into two groups based on fitness:
+    - Top x% of the population (high fitness group).
+    - Remaining individuals (low fitness group).
+    
+    Selection probabilities:
+    - 80% of the selections are made from the top x% group.
+    - 20% of the selections are made from the rest of the population.
+    - Occasionally selects randomly from the entire population.
+
+    Parameters:
+    - population (list): Population where each individual is a list or array containing [object, fitness].
+    - is_matrix (bool): Unused in this function but included for compatibility with other selection methods.
+    - num_to_select (int): Number of individuals to select. Default is 2.
+    - x (float): Proportion of the population in the top group. Default is 0.32 (32%).
+
+    Returns:
+    - selected_individuals (list): List of selected individuals from the population.
+    '''
+    sorted_population = sorted(population, key=lambda ind: ind[-1], reverse=True)
+        
+
+    top_group_size = max(1, int(len(sorted_population) * x))
+    top_group = sorted_population[:top_group_size]
+    bottom_group = sorted_population[top_group_size:]
+
+    selected_individuals = []
+    for _ in range(num_to_select):
+        if random.random() < 0.8 and random.random() > 0.1:  # 80% probabilità di scegliere dal top group
+            selected = random.choice(top_group)
+        elif random.random() > 0.8:  # 20% probabilità di scegliere dal bottom group
+            selected = random.choice(bottom_group)
+        else: 
+            selected = random.choice(sorted_population)
+        selected_individuals.append(selected)
+
+    return selected_individuals
+
 
 #################################################################
 # CROSSOVER
 #################################################################
 
 def crossover(a1: Albero, a2: Albero, prob=0.8):
-    """
-    Esegue crossover su nodi di tipo OPERATORE (binario o NOT) o PREDICATO,
-    evitando QUANTIFICATORE e VARIABILE.
-    """
+    '''
+    Performs a crossover operation on two logical trees (Albero objects).
+    
+    The crossover swaps subtrees of type "OPERATORE" (binary or NOT) or "PREDICATO" 
+    between two parent trees, avoiding nodes of type "QUANTIFICATORE" and "VARIABILE".
+
+    Parameters:
+    - a1 (Albero): The first logical tree.
+    - a2 (Albero): The second logical tree.
+    - prob (float): The probability of performing the crossover. Default is 0.8.
+
+    Returns:
+    - c1 (Albero): The first child tree after crossover.
+    - c2 (Albero): The second child tree after crossover.
+    '''
     if random.random() > prob:
         return a1.copia(), a2.copia()
     
@@ -211,10 +341,20 @@ def crossover(a1: Albero, a2: Albero, prob=0.8):
 
 # Crossover operation for logical formula strings
 def crossover_string(str1, str2):
-    """
-    Perform a crossover operation on two logical formula strings.
-    The crossover will randomly combine parts of the two strings.
-    """
+    '''
+    Performs a crossover operation on two logical formula strings.
+
+    The crossover splits the formulas into parts and combines segments 
+    from each parent string to create two new child strings.
+
+    Parameters:
+    - str1 (str): The first logical formula string.
+    - str2 (str): The second logical formula string.
+
+    Returns:
+    - new_str1 (str): The first child string after crossover.
+    - new_str2 (str): The second child string after crossover.
+    '''
     parts1 = str1.split()
     parts2 = str2.split()
     
@@ -233,15 +373,25 @@ def crossover_string(str1, str2):
 
 
 def mutate(albero: Albero, prob=0.3):
-    """
-    Esempio di mutazione con distinzioni sensate tra operatori unari (NOT) e binari (AND, OR, IMPLIES).
-    - Se il target è un OPERATORE binario, possiamo cambiare l'operatore (es. AND -> OR).
-    - Se il target è un PREDICATO, possiamo:
-      a) Cambiare predicato (nome e arità),
-      b) Avvolgerlo in un NOT,
-      c) Espanderlo in un operatore binario (es. pred -> (pred AND new_pred)).
-    - Se il target è un OPERATORE (binario) con figli, potremmo (facoltativamente) avvolgerlo in un quantificatore, etc.
-    """
+    '''
+    Performs a mutation operation on a logical tree (Albero object).
+
+    The mutation targets nodes of type "PREDICATO" or "OPERATORE" and applies 
+    one of the following changes:
+    1. If the target is a binary operator (e.g., AND, OR), it may be replaced with another binary operator.
+    2. If the target is a predicate, the mutation may:
+       - Change the predicate's name or arity.
+       - Wrap the predicate in a unary operator (e.g., NOT).
+       - Expand the predicate into a binary operation involving another predicate.
+    3. Ensures proper recalculation of the tree depth after mutation.
+
+    Parameters:
+    - albero (Albero): The logical tree to be mutated.
+    - prob (float): The probability of performing a mutation. Default is 0.3.
+
+    Returns:
+    - new_tree (Albero): The mutated logical tree.
+    '''
     if random.random() > prob:
         return albero.copia()
     
@@ -315,10 +465,18 @@ def mutate(albero: Albero, prob=0.3):
 
 # Mutation operation for logical formula strings
 def mutate_string(formula_str):
-    """
-    Perform a mutation on a logical formula string.
-    This could involve changing a predicate, operator, or variable.
-    """
+    '''
+    Performs a mutation operation on a logical formula string.
+
+    The mutation involves replacing a random part of the formula (predicate, operator, or variable)
+    with another randomly chosen element.
+
+    Parameters:
+    - formula_str (str): The logical formula in string format.
+
+    Returns:
+    - mutated_formula (str): The mutated logical formula.
+    '''
     words = formula_str.split()
     mutation_point = random.randint(0, len(words) - 1)
     mutated_word = random.choice(["Fly", "Animal", "Bird", "Penguin", "Swallow", "AND", "OR", "NOT", "IMPLIES"])
@@ -335,6 +493,26 @@ def mutate_string(formula_str):
 
 
 def evolutionary_run_GP(popolazione, generations, ltn_dict, variabili, operatori, metodo, is_matrix, num_offspring):
+    '''
+    Executes an evolutionary run for Genetic Programming (GP) over a specified number of generations.
+
+    This function applies mutation, crossover, and selection to evolve a population of logical formulas
+    represented as either a matrix or a list. The fitness of each individual is computed based on its 
+    logical consistency with the given knowledge base.
+
+    Parameters:
+    - popolazione (list or ndarray): The initial population of individuals (trees).
+    - generations (int): The number of generations to run the evolutionary process.
+    - ltn_dict (dict): Dictionary of Logic Tensor Network (LTN) predicates and their definitions.
+    - variabili (list): Variables available for logical formula evaluation.
+    - operatori (list): List of logical operators (e.g., AND, OR, IMPLIES).
+    - metodo (function): The selection method to choose parents for reproduction.
+    - is_matrix (bool): If True, the population is represented as a matrix; otherwise, as a list.
+    - num_offspring (int): The number of offspring to generate in each generation for list-based populations.
+
+    Returns:
+    - popolazione (list or ndarray): The evolved population after the specified number of generations.
+    '''
     if is_matrix:
         for generation in range(generations):
             #print(f"\n--- Generazione {generation + 1}/{generations} ---")
@@ -392,12 +570,29 @@ def evolutionary_run_GP(popolazione, generations, ltn_dict, variabili, operatori
     return popolazione
 
 
-# Main Genetic Algorithm Loop with string-based individuals
-# Main Genetic Algorithm Loop with string-based individuals
+
 def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori, metodo, is_matrix,population_size, num_offspring, first=True,):
-    """
-    Perform the genetic algorithm using formula strings instead of tree structures.
-    """
+    '''
+    Perform a genetic algorithm (GA) run using logical formula strings instead of tree structures.
+
+    The algorithm applies crossover, mutation, and selection to evolve a population of logical formulas
+    over multiple generations, optimizing their fitness.
+
+    Parameters:
+    - popolazione (list or ndarray): The initial population of individuals (formulas or trees).
+    - generations (int): The number of generations to run the genetic algorithm.
+    - ltn_dict (dict): Dictionary of Logic Tensor Network (LTN) predicates and their definitions.
+    - variabili (list): Variables available for logical formula evaluation.
+    - operatori (list): List of logical operators (e.g., AND, OR, IMPLIES).
+    - metodo (function): The selection method to choose parents for reproduction.
+    - is_matrix (bool): If True, the population is represented as a matrix; otherwise, as a list.
+    - population_size (int): The maximum size of the population.
+    - num_offspring (int): The number of offspring to generate in each generation.
+    - first (bool): A flag indicating if this is the first generation (used for initial conversions).
+
+    Returns:
+    - popolazione (list or ndarray): The evolved population after the specified number of generations.
+    '''
     
     if is_matrix:
         if first:
@@ -435,11 +630,9 @@ def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori
 
     else:
         if first:
-            # Convert individuals to string representation for GA operations
             for i in range(len(popolazione)):
                 individuo = popolazione[i][0]
                 individuo_str = Albero.albero_to_string(individuo)
-                popolazione[i][0] = individuo_str  # Replace with string representation
                 first = False
 
         for generation in range(generations):
@@ -448,30 +641,21 @@ def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori
             child_list = []  # Lista per raccogliere tutti i figli generati in questa generazione
 
             while len(child_list) < num_offspring:
-                # Selection: Select parents based on fitness
                 selected_parents = metodo(popolazione, is_matrix, num_to_select=2)
 
-                # Crossover: Produce offspring by combining parents
                 child1_str, child2_str = crossover_string(selected_parents[0][0], selected_parents[1][0])
 
-                # Mutation: Apply mutation to offspring
                 child1_str = mutate_string(child1_str)
                 child2_str = mutate_string(child2_str)
 
-                # Evaluate fitness of the offspring
                 fit_child1 = compute_fitness_string(child1_str, ltn_dict, variabili)
                 fit_child2 = compute_fitness_string(child2_str, ltn_dict, variabili)
 
-                # Add offspring to the child list
                 child_list.append((child1_str, fit_child1))
                 if len(child_list) < num_offspring:
                     child_list.append((child2_str, fit_child2))
-
-            # Update population (elitism strategy, keeping the best individuals)
             population_with_new_offspring = sorted(child_list, key=lambda x: x[1], reverse=True)
-            popolazione = population_with_new_offspring[:population_size]  # Keep only the best individuals
-
-            # Print current best individual in the population
+            popolazione = population_with_new_offspring[:population_size]  
             best_individual = popolazione[0]
             print(f"Best individual in generation {generation + 1}: {best_individual[0]} with fitness: {best_individual[1]}")
 
@@ -480,6 +664,28 @@ def evolutionary_run_GA(popolazione, generations, ltn_dict, variabili, operatori
 
 
 def evolutionary_run(popolazione, generations, ltn_dict, variabili, predicati, costanti, kb_rules, kb_facts, baseline_sat, is_matrix, metodo):
+    '''
+    Executes an evolutionary algorithm with logical formulas represented as trees (Albero objects).
+
+    The algorithm applies crossover, mutation, and fitness evaluation to evolve the population while 
+    retraining the knowledge base (KB) with newly discovered rules that improve the SAT score.
+
+    Parameters:
+    - popolazione (ndarray): The population of individuals (tree structures) as a 2D matrix.
+    - generations (int): The maximum number of generations to run.
+    - ltn_dict (dict): Dictionary of Logic Tensor Network (LTN) predicates and their definitions.
+    - variabili (list): Variables used in the logical formulas.
+    - predicati (list): List of predicates available for logical formula evaluation.
+    - costanti (list): Constants available in the KB.
+    - kb_rules (list): Current rules in the KB.
+    - kb_facts (list): Current facts in the KB.
+    - baseline_sat (float): The initial SAT score of the KB.
+    - is_matrix (bool): Indicates whether the population is represented as a matrix.
+    - metodo (function): The selection method for choosing parents for reproduction.
+
+    Returns:
+    - popolazione (ndarray): The evolved population after all generations.
+    '''
     patience = 30
     tolerance = 1e-4
 
@@ -598,49 +804,4 @@ def evolutionary_run(popolazione, generations, ltn_dict, variabili, predicati, c
 
 
 
-#################################################################
-# SELECTION METHODS
-#################################################################
 
-def fitness_proportionate_selection(population, is_matrix, num_to_select=2):
-    fitness_values = [individual[-1] for individual in population]
-    total_fitness = sum(fitness_values)
-    probabilities = [fitness / total_fitness for fitness in fitness_values]
-
-    # Seleziona individui in base alle probabilità
-    selected_individuals = random.choices(population, weights=probabilities, k=num_to_select)
-    return selected_individuals
-
-    
-def fitness_proportionate_selection_modern(population, is_matrix, num_to_select=2, x=0.32):
-    """
-    Modern GP selection with "over-selection":
-    - Divide the population into two groups by fitness: top x% and the rest.
-    - 80% of selection operations choose from the top x%, 20% from the rest.
-
-    Args:
-        population (list): Population where each individual is [object, fitness].
-        num_to_select (int): Number of individuals to select.
-        x (float): Proportion of the population in the top group (default 32%).
-
-    Returns:
-        list: Selected individuals from the population.
-    """
-    sorted_population = sorted(population, key=lambda ind: ind[-1], reverse=True)
-        
-
-    top_group_size = max(1, int(len(sorted_population) * x))
-    top_group = sorted_population[:top_group_size]
-    bottom_group = sorted_population[top_group_size:]
-
-    selected_individuals = []
-    for _ in range(num_to_select):
-        if random.random() < 0.8 and random.random() > 0.1:  # 80% probabilità di scegliere dal top group
-            selected = random.choice(top_group)
-        elif random.random() > 0.8:  # 20% probabilità di scegliere dal bottom group
-            selected = random.choice(bottom_group)
-        else: 
-            selected = random.choice(sorted_population)
-        selected_individuals.append(selected)
-
-    return selected_individuals
