@@ -76,15 +76,51 @@ metodo = fitness_proportionate_selection
 
 
 
-runs = {'run1': {'is_matrix': True,  'population_size': 50, 'generations': 100, 'num_offspring': 20, 'metodo': fitness_proportionate_selection},
-        'run2': {'is_matrix': True,  'population_size': 50, 'generations': 100, 'num_offspring': 20, 'metodo': fitness_proportionate_selection_modern},
-        'run3': {'is_matrix': False, 'population_size': 50, 'generations': 100, 'num_offspring': 20, 'metodo': fitness_proportionate_selection},
-        'run4': {'is_matrix': False, 'population_size': 50, 'generations': 100, 'num_offspring': 20, 'metodo': fitness_proportionate_selection_modern}}
+run_matrixfitprop = {
+        'run1': {'is_matrix': True,  'population_size': 16, 'generations': 20, 'num_offspring': 5,   'metodo': fitness_proportionate_selection},
+        'run2': {'is_matrix': True,  'population_size': 16, 'generations': 50, 'num_offspring': 5,   'metodo': fitness_proportionate_selection},
+        'run3': {'is_matrix': True, 'population_size': 49, 'generations': 20, 'num_offspring': 20,   'metodo': fitness_proportionate_selection},
+        'run4': {'is_matrix': True, 'population_size': 49, 'generations': 50, 'num_offspring': 20,   'metodo': fitness_proportionate_selection},
+        'run5': {'is_matrix': True,  'population_size': 16, 'generations': 100, 'num_offspring': 5,  'metodo': fitness_proportionate_selection},
+        'run6': {'is_matrix': True, 'population_size': 49, 'generations': 100, 'num_offspring': 20,  'metodo': fitness_proportionate_selection},
+        'run7': {'is_matrix': True, 'population_size': 100, 'generations': 100, 'num_offspring': 40, 'metodo': fitness_proportionate_selection}}
 
+run_matrixoversel = {
+        'run1': {'is_matrix': True,  'population_size': 16, 'generations': 20, 'num_offspring': 5,   'metodo': fitness_proportionate_selection_modern},
+        'run2': {'is_matrix': True,  'population_size': 16, 'generations': 50, 'num_offspring': 5,   'metodo': fitness_proportionate_selection_modern},
+        'run3': {'is_matrix': True, 'population_size': 49, 'generations': 20, 'num_offspring': 20,   'metodo': fitness_proportionate_selection_modern},
+        'run4': {'is_matrix': True, 'population_size': 49, 'generations': 50, 'num_offspring': 20,   'metodo': fitness_proportionate_selection_modern},
+        'run5': {'is_matrix': True,  'population_size': 16, 'generations': 100, 'num_offspring': 5,  'metodo': fitness_proportionate_selection_modern},
+        'run6': {'is_matrix': True, 'population_size': 49, 'generations': 100, 'num_offspring': 20,  'metodo': fitness_proportionate_selection_modern},
+        'run7': {'is_matrix': True, 'population_size': 100, 'generations': 100, 'num_offspring': 40, 'metodo': fitness_proportionate_selection_modern}}
 
-lista_best = []
+run_listfitprop = {
+        'run1': {'is_matrix': False,  'population_size': 16, 'generations': 20, 'num_offspring': 5,   'metodo': fitness_proportionate_selection},
+        'run2': {'is_matrix': False,  'population_size': 16, 'generations': 50, 'num_offspring': 5,   'metodo': fitness_proportionate_selection},
+        'run3': {'is_matrix': False, 'population_size': 49, 'generations': 20, 'num_offspring': 20,   'metodo': fitness_proportionate_selection},
+        'run4': {'is_matrix': False, 'population_size': 49, 'generations': 50, 'num_offspring': 20,   'metodo': fitness_proportionate_selection},
+        'run5': {'is_matrix': False,  'population_size': 16, 'generations': 100, 'num_offspring': 5,  'metodo': fitness_proportionate_selection},
+        'run6': {'is_matrix': False, 'population_size': 49, 'generations': 100, 'num_offspring': 20,  'metodo': fitness_proportionate_selection},
+        'run7': {'is_matrix': False, 'population_size': 100, 'generations': 100, 'num_offspring': 40, 'metodo': fitness_proportionate_selection}}
+
+run_listoversel = {
+        'run1': {'is_matrix': False,  'population_size': 16, 'generations': 20, 'num_offspring': 5,   'metodo': fitness_proportionate_selection_modern},
+        'run2': {'is_matrix': False,  'population_size': 16, 'generations': 50, 'num_offspring': 5,   'metodo': fitness_proportionate_selection_modern},
+        'run3': {'is_matrix': False, 'population_size': 49, 'generations': 20, 'num_offspring': 20,   'metodo': fitness_proportionate_selection_modern},
+        'run4': {'is_matrix': False, 'population_size': 49, 'generations': 50, 'num_offspring': 20,   'metodo': fitness_proportionate_selection_modern},
+        'run5': {'is_matrix': False,  'population_size': 16, 'generations': 100, 'num_offspring': 5,  'metodo': fitness_proportionate_selection_modern},
+        'run6': {'is_matrix': False, 'population_size': 49, 'generations': 100, 'num_offspring': 20,  'metodo': fitness_proportionate_selection_modern},
+        'run7': {'is_matrix': False, 'population_size': 100, 'generations': 100, 'num_offspring': 40, 'metodo': fitness_proportionate_selection_modern}}
+
+runs = run_listoversel
+
 for run in runs:
-    print(runs[run]) 
+    print('\n\n\n\n\n')
+    print('--------------------------')
+    print('\n')
+    print(run, runs[run]) 
+    print('\n')
+    
     is_matrix = runs[run]['is_matrix']
     population_size = runs[run]['population_size']
     generations = runs[run]['generations']
@@ -135,17 +171,14 @@ for run in runs:
     for pop in popolazione_ordinata:
         if pop[1]>=1:
             migliori.append(pop[0])
-            lista_best.append(pop[0])
 
 
     migliori = list(set(migliori))
     print(len(migliori))
 
-lista_best = list(set(lista_best))
-print(len(lista_best))
 
 
-for individuo in lista_best:
-    predicati = [nodo for nodo in get_all_nodes(individuo.radice) if nodo.tipo_nodo == "PREDICATO"]
-    formula = individuo.to_ltn_formula(ltn_dict, variabili)
-    print(individuo, formula.value.item())
+    for individuo in migliori:
+        pred = [nodo for nodo in get_all_nodes(individuo.radice) if nodo.tipo_nodo == "PREDICATO"]
+        formula = individuo.to_ltn_formula(ltn_dict, variabili)
+        print(individuo, formula.value.item())
