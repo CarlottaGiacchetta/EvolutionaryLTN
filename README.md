@@ -85,17 +85,5 @@ Utility functions for processing logical trees and optimization:
 
 ---
 
-## Usage
-
-1. **Setup the KB**
-   - Define predicates, operators, and constants in `kb.py`.
-
-2. **Run the Evolutionary Algorithm**
-   - Start the evolutionary cycle using the `evolutionary_run` or `evolutionary_run_GP` functions in `evo_funct.py`.
-
-3. **Evaluate Results**
-   - Check KB satisfaction using `measure_kb_sat` and review the new discovered rules.
-
----
 
 
