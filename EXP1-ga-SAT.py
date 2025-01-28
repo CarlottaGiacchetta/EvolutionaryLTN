@@ -85,7 +85,7 @@ popolazione = popolazione_init(population_size=population_size,
                            ltn_dict={**predicati, **quantificatori, **operatori}, 
                            variabili=variabili)
 
-print(popolazione)
+print(type(popolazione[0]))
 # Esecuzione
 popolazione_finale = evolutionary_run_GA(
         popolazione,
