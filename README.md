@@ -56,5 +56,17 @@ Utility functions for processing logical trees and optimization:
 - **Operators and Predicates**: Creates unary predicates and manages logical operators.
 
 ---
+---
+
+## Installation
+
+To run the framework:
+
+ **Clone the repository**:
+   ```bash
+   git clone https://github.com/CarlottaGiacchetta/EvolutionaryLTN.git
+   cd EvolutionaryLTN
+   ```
+
 
 
