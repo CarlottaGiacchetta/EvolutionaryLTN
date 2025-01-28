@@ -1,6 +1,6 @@
 # Evolutionary Logic Tensor Network (LTN) Framework
 
-This project implements a system based on **Genetic Algorithms (GA)** and **Genetic Programming (GP)** to optimize logical rules represented through **Logic Tensor Networks (LTN)**. The system combines machine learning methods with evolutionary techniques to improve the logical consistency of a knowledge base (KB).
+This project implements a system based on **Genetic Algorithms (GA)** and **Genetic Programming (GP)** to optimize logical rules represented through **Logic Tensor Networks (LTN)**. The system throught evolutionary techniques improves the logical consistency of a knowledge base (KB).
 
 ---
 
@@ -98,15 +98,4 @@ Utility functions for processing logical trees and optimization:
 
 ---
 
-## Technologies Used
-- **Python**: Main programming language.
-- **PyTorch**: Used for modeling predicates and optimizing the KB.
-- **Genetic Algorithms and Genetic Programming**: To explore the space of logical formulas.
-
----
-
-## Contributors
-- This framework is designed for researchers and developers interested in combining machine learning with formal logic.
-
-Feel free to reach out with questions or suggestions! 🚀
 
